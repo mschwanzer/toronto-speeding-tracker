@@ -69,7 +69,9 @@
   #yoyTierChart { width: 100%; height: 320px; }
   #yoyTopChart { width: 100%; height: 540px; }
   #spatialChart { width: 100%; height: 340px; }
-  #wardRankChart { width: 100%; height: 620px; }
+  #cameraRankChart { width: 100%; height: 620px; }
+  .ward-card .rank { display: inline-block; font-size: 10px; font-weight: 700; color: #fff; background: var(--accent); padding: 2px 6px; border-radius: 10px; margin-right: 4px; vertical-align: middle; }
+  .ward-card .rank.muted { background: #94a3b8; }
   .yoy-tile-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
   .yoy-tile { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px; }
   .yoy-tile .tier { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-soft); }
@@ -132,6 +134,7 @@
   <div class="wrap">
     <h1>Did Toronto get faster after the speed-camera ban?</h1>
     <p>In November 2025 the Province of Ontario banned Automated Speed Enforcement cameras. This dashboard uses the City of Toronto's network of ~1,200 driver-feedback radar signs to track whether speeding actually rose — by street, by ward, month over month — with a 2024 control to filter out seasonal noise.</p>
+    <p style="margin-top:14px"><a href="./story.html" style="color:#ffb4ab;border-bottom:1px solid rgba(255,180,171,0.6)">Read the short visual story →</a></p>
   </div>
 </header>
 
@@ -157,7 +160,7 @@
       <h2 style="margin:0">Speeding change by distance to the nearest ASE camera</h2>
       <span class="small">Spatial difference-in-differences · Jul–Oct vs Dec–Mar windows</span>
     </div>
-    <p class="small" style="margin-top:0">A reader asked whether the analysis could be done <i>spatially</i> instead of just temporally. This grouping does exactly that: each WYS sign is assigned to a bin by how far it sits from its nearest Automated Speed Enforcement camera point. If the ASE removal is what's driving the change, signs <i>close</i> to former camera locations should show a larger pre/post jump than signs far away. The DiD-adjusted bars also subtract the same windows in 2024 to strip seasonality. (ASE locations published by the City include formerly-active and planned points; no install/removal dates are published, so "near" = "near a designated ASE location," not a guarantee enforcement was active at that point.)</p>
+    <p class="small" style="margin-top:0">A reader asked whether the analysis could be done <i>spatially</i> instead of just temporally. This grouping does exactly that, restricted to signs within 500&nbsp;m of a former ASE camera point — the zone where there's a plausible mechanistic association between a specific camera and a driver's speed. Beyond ~500&nbsp;m the "near vs far" framing breaks down (signs aren't being treated by any specific camera), so those bins are intentionally omitted. The DiD-adjusted bars also subtract the same windows in 2024 to strip seasonality. ASE locations published by the City include formerly-active and planned points; no install/removal dates are published, so "near" reads as "near a location designated for automated enforcement," not a guarantee enforcement was active.</p>
     <div id="spatialChart"></div>
   </div>
 </section>
@@ -209,6 +212,17 @@
 </section>
 
 <section class="wrap">
+  <div class="card" id="cameraRankCard" style="display:none">
+    <div class="head">
+      <h2 style="margin:0">Former ASE camera locations ranked by speeding change nearby</h2>
+      <span class="small">Top 25 · DiD-adjusted, signs within 500 m of each camera point</span>
+    </div>
+    <p class="small" style="margin-top:0">Each row is a specific Automated Speed Enforcement camera location, with the speeding change aggregated across WYS radar signs within 500 m of it. The DiD-adjusted column subtracts the same period in 2024 to strip seasonal noise. Reads "where did the camera-removal hit hardest, by individual former enforcement point."</p>
+    <div id="cameraRankChart"></div>
+  </div>
+</section>
+
+<section class="wrap">
   <div class="card">
     <div class="head">
       <h2 style="margin:0">Map · ~1,200 radar signs · ASE camera locations</h2>
@@ -230,22 +244,8 @@
 </section>
 
 <section class="wrap">
-  <div class="card">
-    <div class="head">
-      <h2 style="margin:0">Wards ranked by speeding increase</h2>
-      <span class="tier-filter" id="wardRankMetric">
-        <button data-metric="did" class="active">DiD-adjusted</button>
-        <button data-metric="delta_2025">Raw 2025 Δ</button>
-      </span>
-    </div>
-    <p class="small" style="margin-top:0">All 25 wards sorted by change in volume-weighted "% &gt;10 km/h over the limit," post-ban (Dec 2025–Mar 2026) vs pre-ban (Jul–Oct 2025). The <b>DiD-adjusted</b> view subtracts the same delta in 2024 to strip out winter-vs-summer seasonality. Click any bar to open that ward's panel.</p>
-    <div id="wardRankChart"></div>
-  </div>
-</section>
-
-<section class="wrap">
-  <h2>Browse by ward</h2>
-  <p class="small">Each card shows the ward's volume-weighted trend over the last 24 months and its DiD-adjusted change (post-ban vs pre-ban, minus the same delta in 2024). Click to expand.</p>
+  <h2>Wards by speeding increase</h2>
+  <p class="small">All 25 wards, <b>ranked top-to-bottom by DiD-adjusted change</b> (post-ban Dec 2025–Mar 2026 vs pre-ban Jul–Oct 2025, with the same delta in 2024 subtracted to remove winter-vs-summer seasonality). The number badge is the rank. Click any card to expand.</p>
   <div class="ward-grid" id="wardGrid"></div>
 
   <div class="card panel" id="wardPanel" style="margin-top:18px">
@@ -320,6 +320,11 @@
     </ul>
 
     <p class="small">Contains information licensed under the <a href="https://open.toronto.ca/open-data-license/" target="_blank" rel="noopener">Open Government Licence – Toronto</a>. Source datasets © City of Toronto. Page generated <span id="refreshedAt"></span>.</p>
+
+    <p style="margin-top:24px;padding:14px 16px;border:1px solid var(--line);border-radius:8px;background:#fafbfd;font-size:13px;line-height:1.55">
+      <b>Open source.</b> Every line of the analysis and the page itself is published at
+      <a href="https://github.com/mschwanzer/toronto-speeding-tracker" target="_blank" rel="noopener">github.com/mschwanzer/toronto-speeding-tracker</a> under the MIT licence. Provided <b>as-is</b>, with <b>no warranty, no guarantee of accuracy, and no liability</b>. The author makes no commitment to respond to issues, fix errors, or maintain the page.
+    </p>
   </div>
 </footer>
 
@@ -410,6 +415,42 @@
           label: { show: true, position: "top", fontSize: 10, color: "#c0392b", formatter: p => fmt.pp(p.value) },
         },
       ],
+    });
+    window.addEventListener("resize", () => chart.resize());
+  }
+
+  // ---------- per-ASE-camera ranking ----------
+  function renderCameraRank() {
+    if (!S.ase_camera_ranked || !S.ase_camera_ranked.length) return;
+    document.getElementById("cameraRankCard").style.display = "";
+    // Sort ascending so the largest DiD lands at the TOP of the horizontal-bar y-axis
+    const data = S.ase_camera_ranked.slice()
+      .filter(c => c.did != null)
+      .sort((a, b) => a.did - b.did);
+    const chart = echarts.init(document.getElementById("cameraRankChart"), null, { renderer: "canvas" });
+    chart.setOption({
+      grid: { left: 320, right: 100, top: 16, bottom: 30 },
+      tooltip: { trigger: "axis", axisPointer: { type: "shadow" },
+        formatter: p => {
+          const it = data[p[0].dataIndex];
+          return `<b>${it.location}</b><br>${it.n_signs} WYS signs within 500 m` +
+                 (it.status ? `<br>ASE status: ${it.status}` : "") +
+                 `<br>2025 pre: ${fmt.pct(it.pre_2025)} → post: ${fmt.pct(it.post_2025)}` +
+                 `<br>Raw Δ: ${fmt.pp(it.delta_2025)}<br><b>DiD-adjusted: ${fmt.pp(it.did)}</b>`;
+        },
+      },
+      xAxis: { type: "value", name: "DiD-adjusted change (pp)", nameLocation: "middle", nameGap: 22,
+               axisLabel: { formatter: v => (v >= 0 ? "+" : "") + v.toFixed(1) } },
+      yAxis: { type: "category",
+               data: data.map(c => c.location.length > 48 ? c.location.slice(0, 46) + "…" : c.location),
+               axisLabel: { fontSize: 11 } },
+      series: [{
+        type: "bar",
+        data: data.map(c => ({ value: Number(c.did.toFixed(2)),
+                               itemStyle: { color: c.did > 0 ? "#c0392b" : "#2e7d4f", borderRadius: [0, 2, 2, 0] } })),
+        label: { show: true, position: "right", fontSize: 11, color: "#0f172a",
+                 formatter: p => fmt.pp(p.value) + ` · n=${data[p.dataIndex].n_signs}` },
+      }],
     });
     window.addEventListener("resize", () => chart.resize());
   }
@@ -696,66 +737,6 @@
     setTimeout(() => map.invalidateSize(), 100);
   }
 
-  // ---------- ward ranking ----------
-  function renderWardRank(metric) {
-    metric = metric || "did";
-    const valid = S.ward_summary.filter(w => w[metric] != null);
-    // Sort ascending so the LARGEST value lands at the TOP of a horizontal-bar y-axis
-    const data = valid.slice().sort((a, b) => a[metric] - b[metric]);
-    let chart = window._wardRankChart;
-    if (!chart) {
-      chart = echarts.init(document.getElementById("wardRankChart"), null, { renderer: "canvas" });
-      window._wardRankChart = chart;
-      window.addEventListener("resize", () => chart.resize());
-      chart.on("click", p => {
-        const it = (window._wardRankSorted || [])[p.dataIndex];
-        if (it) openWard(it.ward);
-      });
-    }
-    window._wardRankSorted = data;
-    window._wardRankMetric = metric;
-    chart.setOption({
-      grid: { left: 240, right: 100, top: 16, bottom: 30 },
-      tooltip: {
-        trigger: "axis", axisPointer: { type: "shadow" },
-        formatter: p => {
-          const it = data[p[0].dataIndex];
-          const sign = (v) => v == null ? "—" : (v >= 0 ? "+" : "") + v.toFixed(2) + " pp";
-          return `<b>Ward ${it.ward} · ${it.name}</b><br>${it.n_signs} signs · latest ${fmt.pct(it.latest)}<br>Raw 2025 Δ: ${sign(it.delta_2025)}<br>DiD-adjusted: ${sign(it.did)}<br><i>Click to open</i>`;
-        },
-      },
-      xAxis: {
-        type: "value",
-        name: metric === "did" ? "DiD-adjusted change (pp)" : "Raw 2025 change (pp)",
-        nameLocation: "middle", nameGap: 22,
-        axisLabel: { formatter: v => (v >= 0 ? "+" : "") + v.toFixed(1) },
-      },
-      yAxis: {
-        type: "category",
-        data: data.map(w => `Ward ${w.ward} · ${w.name}`),
-        axisLabel: { fontSize: 12 },
-      },
-      series: [{
-        type: "bar",
-        data: data.map(w => ({
-          value: Number(w[metric].toFixed(2)),
-          itemStyle: { color: w[metric] > 0 ? "#c0392b" : "#2e7d4f", borderRadius: [0, 2, 2, 0] },
-        })),
-        label: {
-          show: true, position: "right", fontSize: 11, color: "#0f172a",
-          formatter: p => (p.value >= 0 ? "+" : "") + p.value.toFixed(2) + " pp",
-        },
-      }],
-    });
-  }
-
-  document.addEventListener("click", e => {
-    const b = e.target.closest("#wardRankMetric button");
-    if (!b) return;
-    document.querySelectorAll("#wardRankMetric button").forEach(x => x.classList.toggle("active", x === b));
-    renderWardRank(b.dataset.metric);
-  });
-
   // ---------- ward grid + panel ----------
   let wardChart = null;
   let wardAdtChart = null;
@@ -764,15 +745,22 @@
   function renderWardGrid() {
     const grid = document.getElementById("wardGrid");
     grid.innerHTML = "";
-    S.ward_summary.forEach(w => {
+    // Rank by DiD-adjusted change (descending; nulls last)
+    const ranked = S.ward_summary.slice().sort((a, b) => {
+      const av = a.did == null ? -Infinity : a.did;
+      const bv = b.did == null ? -Infinity : b.did;
+      return bv - av;
+    });
+    ranked.forEach((w, i) => {
       const card = document.createElement("div");
       card.className = "ward-card";
       card.dataset.ward = w.ward;
       const did = w.did;
       const cls = did == null ? "neutral" : (did > 0 ? "pos" : "neg");
       const arrow = did == null ? "" : (did > 0 ? "▲" : "▼");
+      const rankCls = did == null ? "muted" : (did > 0 ? "" : "muted");
       card.innerHTML = `
-        <div class="num">Ward ${w.ward} · ${w.n_signs} signs</div>
+        <div class="num"><span class="rank ${rankCls}">#${i + 1}</span> Ward ${w.ward} · ${w.n_signs} signs</div>
         <div class="nm">${w.name}</div>
         <div class="stat">Latest <span class="v">${fmt.pct(w.latest)}</span></div>
         <div class="stat">DiD-adj <span class="v ${cls}">${arrow} ${fmt.pp(did)}</span></div>
@@ -781,7 +769,7 @@
       grid.appendChild(card);
     });
     // sparklines
-    S.ward_summary.forEach(w => {
+    ranked.forEach(w => {
       const el = grid.querySelector(`[data-spark="${w.ward}"]`);
       if (!el || !w.series24) return;
       const chart = echarts.init(el, null, { renderer: "canvas" });
@@ -801,8 +789,11 @@
     return FULL;
   }
 
-  async function openWard(ward) {
+  async function openWard(ward, opts) {
     activeWard = ward;
+    if (!(opts && opts.skipHash)) {
+      try { history.replaceState(null, "", "#ward=" + ward); } catch (e) {}
+    }
     document.querySelectorAll(".ward-card").forEach(c => c.classList.toggle("active", String(c.dataset.ward) === String(ward)));
     const panel = document.getElementById("wardPanel");
     panel.classList.add("open");
@@ -892,9 +883,12 @@
   let signBinsChart = null;
   let signHourChart = null;
   let signDowChart = null;
-  async function openSign(sid) {
+  async function openSign(sid, opts) {
     const sign = S.signs.find(s => String(s.sign_id) === String(sid));
     if (!sign) return;
+    if (!(opts && opts.skipHash)) {
+      try { history.replaceState(null, "", "#sign=" + encodeURIComponent(sid)); } catch (e) {}
+    }
     const panel = document.getElementById("signPanel");
     panel.classList.add("open");
     document.getElementById("signPanelTitle").textContent = sign.name || sign.address || ("Sign " + sid);
@@ -1075,16 +1069,31 @@
   renderYoY();
   renderYoYTop(20);
   renderSpatial();
+  renderCameraRank();
   renderCityChart();
   renderDistribution();
   renderMap();
   renderMovers();
-  renderWardRank();
   renderWardGrid();
 
-  // Auto-open Mimico-area ward (Etobicoke-Lakeshore, Ward 3) if present
-  const mimico = S.ward_summary.find(w => w.ward === 3);
-  if (mimico) setTimeout(() => openWard(3), 250);
+  // Deep-link handling: parse the URL hash so /#sign=123 or /#ward=3 opens
+  // that panel on load (and shareable links work). Falls back to the Ward 3
+  // default-open if no hash is present.
+  function applyHash() {
+    const h = window.location.hash.replace(/^#/, "");
+    if (!h) return false;
+    const params = new URLSearchParams(h.replace(/^\?/, ""));
+    const sid = params.get("sign") || (h.startsWith("sign=") ? h.slice(5) : null);
+    const w = params.get("ward") || (h.startsWith("ward=") ? h.slice(5) : null);
+    if (sid) { openSign(sid); return true; }
+    if (w) { openWard(parseInt(w, 10)); return true; }
+    return false;
+  }
+  if (!applyHash()) {
+    const mimico = S.ward_summary.find(w => w.ward === 3);
+    if (mimico) setTimeout(() => openWard(3, { skipHash: true }), 250);
+  }
+  window.addEventListener("hashchange", () => applyHash());
 })();
 </script>
 

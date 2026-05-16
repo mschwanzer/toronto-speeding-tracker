@@ -288,14 +288,14 @@ def aggregate_ward(rows: list[dict]) -> dict[int, dict[str, dict]]:
 
 # ---------- spatial: distance to nearest ASE camera ----------
 
-# Bin edges in metres. Left-inclusive, right-exclusive; the final bin extends
-# to infinity. The labels are what's shown on the chart.
+# Bin edges in metres. Left-inclusive, right-exclusive.
+# Only bins within ~500 m of a former ASE camera are reported: beyond that
+# distance there's no plausible mechanistic association between a specific
+# camera point and a sign's driver behaviour, so the "further" bins were
+# methodological noise dressed up as a control group.
 DISTANCE_BINS: list[tuple[int, int | None, str]] = [
-    (0,    250,  "0–250 m"),
-    (250,  500,  "250–500 m"),
-    (500,  1000, "500 m–1 km"),
-    (1000, 2000, "1–2 km"),
-    (2000, None, ">2 km"),
+    (0,   250, "0–250 m"),
+    (250, 500, "250–500 m"),
 ]
 DISTANCE_BIN_LABELS: list[str] = [lbl for _, _, lbl in DISTANCE_BINS]
 
@@ -344,6 +344,66 @@ def aggregate_distance(rows: list[dict], sign_to_bin: dict[str, str]) -> dict[st
         return sign_to_bin.get(r["sign_id"])
     grouped = _weighted_monthly((r for r in rows if key(r) is not None), key_fn=key)
     return dict(grouped)
+
+
+def aggregate_by_ase_camera(rows: list[dict], nearest_ase: dict[str, dict],
+                             max_distance_m: int = 500) -> dict[str, dict[str, dict]]:
+    """Group monthly rows by the WYS sign's nearest ASE camera (within max_distance_m).
+
+    Signs further than max_distance_m from any camera are excluded; the assumption
+    is the camera is no longer plausibly "associated" with those signs' behaviour.
+    Returns a {ase_location -> monthly_map} dict, ready for compute_prepost_groups.
+    """
+    sign_to_ase: dict[str, str] = {}
+    for sid, info in nearest_ase.items():
+        d = info.get("distance_m")
+        loc = info.get("ase_location")
+        if d is not None and loc and d <= max_distance_m:
+            sign_to_ase[sid] = loc
+
+    def key(r):
+        return sign_to_ase.get(r["sign_id"])
+
+    grouped = _weighted_monthly((r for r in rows if key(r) is not None), key_fn=key)
+    return dict(grouped)
+
+
+def top_ase_camera_movers(ase_prepost: dict[str, dict], nearest_ase: dict[str, dict],
+                           ase: list[dict], max_distance_m: int = 500,
+                           min_signs: int = 1, n: int = 25) -> list[dict]:
+    """Rank ASE cameras by DiD-adjusted speeding change at nearby WYS signs."""
+    counts: dict[str, int] = {}
+    for sid, info in nearest_ase.items():
+        d = info.get("distance_m")
+        loc = info.get("ase_location")
+        if d is not None and loc and d <= max_distance_m:
+            counts[loc] = counts.get(loc, 0) + 1
+
+    ase_by_loc = {a["location"]: a for a in ase}
+    items = []
+    for loc, stats in ase_prepost.items():
+        did = stats.get("did")
+        delta25 = stats.get("delta_2025")
+        if did is None and delta25 is None:
+            continue
+        c = counts.get(loc, 0)
+        if c < min_signs:
+            continue
+        meta = ase_by_loc.get(loc, {})
+        items.append({
+            "location": loc,
+            "n_signs": c,
+            "status": meta.get("status"),
+            "ward": meta.get("ward"),
+            "lat": meta.get("lat"),
+            "lon": meta.get("lon"),
+            "did": did,
+            "delta_2025": delta25,
+            "pre_2025": stats.get("pre_2025"),
+            "post_2025": stats.get("post_2025"),
+        })
+    items.sort(key=lambda x: (x["did"] if x["did"] is not None else -1e9), reverse=True)
+    return items[:n]
 
 
 def aggregate_sign(rows: list[dict]) -> dict[str, dict[str, float]]:

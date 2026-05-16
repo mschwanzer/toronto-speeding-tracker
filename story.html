@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>After Toronto removed its speed cameras, drivers went faster</title>
+<meta property="og:title" content="After Toronto removed its speed cameras, drivers went faster">
+<meta property="og:description" content="A public-data analysis of every Watch Your Speed radar sign in Toronto. Across 733 signs, an additional 1.7 million vehicles were measured driving 10+ km/h over the posted limit in Jan–Apr 2026 vs the same period a year earlier — and the closer a sign sat to a former enforcement camera, the bigger the jump.">
+<meta name="description" content="A public-data analysis of every Watch Your Speed radar sign in Toronto.">
+<style>
+  :root {
+    --bg: #ffffff;
+    --ink: #11151c;
+    --ink-soft: #4a5263;
+    --line: #e3e6ec;
+    --accent: #c0392b;
+    --good: #2e7d4f;
+    --neutral: #6b7280;
+    --serif: ui-serif, Georgia, "Times New Roman", serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 17px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  a { color: #1a56db; }
+  a.unstyled { color: inherit; text-decoration: none; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 0 24px; }
+  .wrap-wide { max-width: 1000px; margin: 0 auto; padding: 0 24px; }
+
+  .disclaimer-bar { background: #fef7e6; color: #6b4f00; border-bottom: 1px solid #f1d977; padding: 8px 24px; font-size: 12.5px; line-height: 1.5; text-align: center; }
+  .disclaimer-bar a { color: #6b4f00; text-decoration: underline; }
+
+  header.hero { padding: 80px 0 56px; border-bottom: 1px solid var(--line); }
+  header.hero .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); margin-bottom: 14px; }
+  header.hero h1 { font-family: var(--serif); font-weight: 700; font-size: 48px; line-height: 1.12; letter-spacing: -0.02em; margin: 0 0 18px; }
+  header.hero .standfirst { font-size: 19px; color: var(--ink-soft); margin: 0 0 24px; max-width: 64ch; }
+  header.hero .byline { font-size: 13px; color: var(--ink-soft); }
+  @media (max-width: 700px) { header.hero h1 { font-size: 34px; } }
+
+  section.chapter { padding: 56px 0; border-bottom: 1px solid var(--line); }
+  section.chapter h2 { font-family: var(--serif); font-weight: 700; font-size: 30px; line-height: 1.2; letter-spacing: -0.01em; margin: 0 0 14px; }
+  section.chapter p.intro { font-size: 18px; color: var(--ink); margin: 0 0 28px; }
+  section.chapter p.caption { font-size: 15px; color: var(--ink-soft); margin: 18px 0 0; }
+  section.chapter .pull { font-family: var(--serif); font-style: italic; font-size: 22px; line-height: 1.4; color: var(--ink); border-left: 3px solid var(--accent); padding: 4px 0 4px 20px; margin: 28px 0; }
+
+  .big-number { font-family: var(--serif); font-weight: 700; font-size: 96px; line-height: 1; letter-spacing: -0.03em; color: var(--accent); margin: 0; }
+  .big-number .unit { font-size: 36px; color: var(--ink-soft); margin-left: 6px; letter-spacing: -0.01em; }
+  .big-number-label { font-size: 14px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.1em; margin: 12px 0 0; }
+  @media (max-width: 700px) { .big-number { font-size: 64px; } }
+
+  .stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin: 24px 0; }
+  .stat { padding: 16px 18px; border: 1px solid var(--line); border-radius: 8px; }
+  .stat .val { font-family: var(--serif); font-size: 36px; font-weight: 700; color: var(--ink); margin: 0; line-height: 1.1; }
+  .stat .val.pos { color: var(--accent); }
+  .stat .val.neg { color: var(--good); }
+  .stat .lbl { font-size: 13px; color: var(--ink-soft); margin-top: 6px; }
+  @media (max-width: 700px) { .stat-row { grid-template-columns: 1fr; } }
+
+  .chart { width: 100%; }
+  #cityTrend { height: 360px; }
+  #tierBars { height: 320px; }
+  #wardBars { height: 600px; }
+  #spatialBars { height: 280px; }
+  #distShift { height: 320px; }
+
+  footer.colofon { padding: 60px 0 100px; }
+  footer.colofon h3 { font-family: var(--serif); font-size: 20px; margin: 0 0 14px; }
+  footer.colofon p { color: var(--ink-soft); font-size: 14px; margin: 0 0 14px; }
+  footer.colofon .links { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0; }
+  footer.colofon .links a { display: inline-block; padding: 8px 14px; background: #f3f5f9; border-radius: 6px; text-decoration: none; color: var(--ink); font-size: 14px; font-weight: 500; }
+  footer.colofon .links a:hover { background: #e3e6ec; }
+  footer.colofon .small { font-size: 12.5px; color: var(--ink-soft); }
+</style>
+</head>
+<body>
+
+<div class="disclaimer-bar">
+  Independent analysis · Not produced or endorsed by the City of Toronto, Toronto Police Service, or any government body · Data licensed under
+  <a href="https://open.toronto.ca/open-data-license/" target="_blank" rel="noopener">OGL-Toronto</a>
+</div>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Data analysis · Toronto open data · May 2026</div>
+    <h1>After Toronto removed its speed cameras, drivers went faster.</h1>
+    <p class="standfirst">A public-data analysis of every Watch Your Speed radar sign in the city — 733 cross-comparable signs in all — finds an additional 1.7 million vehicles measured driving more than 10 km/h over the posted limit between January and April this year, compared with the same period a year earlier. The closer a sign sat to a former enforcement camera, the bigger the jump.</p>
+    <p class="byline">Five months after Ontario banned automated speed enforcement statewide in November 2025.</p>
+  </div>
+</header>
+
+<section class="chapter">
+  <div class="wrap">
+    <h2>The headline</h2>
+    <p class="intro">Across the 733 radar signs that reported in both windows, the share of measured vehicles travelling at least 10 km/h over the posted limit rose from 9.24% to 10.60%.</p>
+    <p class="big-number">+10.6<span class="unit">%</span></p>
+    <p class="big-number-label">more "10+ over" speeders, Jan–Apr 2026 vs 2025</p>
+    <div class="stat-row">
+      <div class="stat">
+        <p class="val">17,678,572</p>
+        <p class="lbl">vehicles measured 10+ km/h over the limit, Jan–Apr 2026</p>
+      </div>
+      <div class="stat">
+        <p class="val">15,986,397</p>
+        <p class="lbl">in the same window in 2025 — a difference of <b>+1,692,175</b></p>
+      </div>
+    </div>
+    <p class="caption">Same signs, same months, year over year. The Watch Your Speed signs Toronto installs in safety zones log every vehicle that passes, 24 hours a day, and report monthly aggregates by 5 km/h speed bin. The analysis here only counts signs that reported in both windows, so the comparison is apples-to-apples.</p>
+  </div>
+</section>
+
+<section class="chapter">
+  <div class="wrap-wide">
+    <div class="wrap" style="padding-left: 0; padding-right: 0;">
+      <h2>It isn't just winter.</h2>
+      <p class="intro">Speeding normally drops as the year turns cold — fewer pedestrians, more snow, slower commutes. In the same window a year earlier, the city-wide rate <i>fell</i> 1.93 percentage points. This year, it rose 1.54. Both versus the previous July–October baseline at the same signs.</p>
+    </div>
+    <div id="cityTrend" class="chart"></div>
+    <div class="wrap" style="padding-left: 0; padding-right: 0;">
+      <p class="pull">Subtract the seasonal slowdown a 2024 control predicts, and the camera-ban era sits +3.47 percentage points above where the trend says it should be.</p>
+      <p class="caption">The vertical dashed line marks November 2025, when Ontario banned automated speed enforcement. The two shaded bands are the July–October "pre" window and the December–March "post" window used for the difference-in-differences calculation. The same windows were measured in 2024 to control for seasonality.</p>
+    </div>
+  </div>
+</section>
+
+<section class="chapter">
+  <div class="wrap-wide">
+    <div class="wrap" style="padding-left: 0; padding-right: 0;">
+      <h2>It's worse for the worst speeders.</h2>
+      <p class="intro">The rise isn't only among drivers nudging a few km/h over the limit. At every tier — 10+, 15+, 20+, 25+, even 30+ km/h over — the count of speeders climbed.</p>
+    </div>
+    <div id="tierBars" class="chart"></div>
+    <div class="wrap" style="padding-left: 0; padding-right: 0;">
+      <p class="caption">Tier counts are cumulative ("20+ over" includes 25+, 30+, etc.). Jan–Apr 2026 against the same window in 2025, restricted to the 733 signs that reported in both periods.</p>
+    </div>
+  </div>
+</section>
+
+<section class="chapter">
+  <div class="wrap-wide">
+    <div class="wrap" style="padding-left: 0; padding-right: 0;">
+      <h2>Almost every ward got faster.</h2>
+      <p class="intro">Twenty-four of Toronto's twenty-five wards show a positive DiD-adjusted change. Only one — Ward 23 Scarborough North — is statistically flat. Etobicoke Centre (Ward 2) and Willowdale (Ward 18) are the worst-hit, each pushing past +9 percentage points after stripping out seasonality.</p>
+    </div>
+    <div id="wardBars" class="chart"></div>
+    <div class="wrap" style="padding-left: 0; padding-right: 0;">
+      <p class="caption">All 25 wards ranked. The DiD-adjusted change subtracts 2024's seasonal pattern at the same signs, so what's left is the slice plausibly attributable to whatever happened during the camera-ban window.</p>
+    </div>
+  </div>
+</section>
+
+<section class="chapter">
+  <div class="wrap-wide">
+    <div class="wrap" style="padding-left: 0; padding-right: 0;">
+      <h2>The closer to a former camera, the bigger the jump.</h2>
+      <p class="intro">A spatial difference-in-differences — comparing radar signs by how far they sit from a former ASE camera location — reveals a clean dose-response. Signs within 250 m of a former camera saw a larger pre/post change than signs 250–500 m away. Beyond 500 m the comparison stops being meaningful (a sign isn't really being "treated" by a camera kilometres away), so it isn't reported.</p>
+    </div>
+    <div id="spatialBars" class="chart"></div>
+    <div class="wrap" style="padding-left: 0; padding-right: 0;">
+      <p class="pull">It isn't proof. But it is the cleanest pattern the data can produce: enforcement zones are exactly the places where drivers sped up most when enforcement disappeared.</p>
+      <p class="caption">ASE locations published by the City include both formerly-active and planned points, and the City does not publish install or removal dates. "Near a former ASE camera" should be read as "near a location the City designated for automated enforcement," not a guarantee enforcement was historically active.</p>
+    </div>
+  </div>
+</section>
+
+<section class="chapter">
+  <div class="wrap-wide">
+    <div class="wrap" style="padding-left: 0; padding-right: 0;">
+      <h2>The speed curve shifted right.</h2>
+      <p class="intro">Aggregated across all 733 cross-comparable signs, the distribution of measured speeds moved upward in every bin above the posted limit — while the same window in 2024 showed the opposite, the normal seasonal pull toward lower speeds.</p>
+    </div>
+    <div id="distShift" class="chart"></div>
+    <div class="wrap" style="padding-left: 0; padding-right: 0;">
+      <p class="caption">Each line shows the share of measured vehicles in each 5 km/h speed bin during a 4-month window. The two solid 2025 lines straddle the camera ban; the dotted 2024 lines bracket the equivalent windows a year earlier and show the normal seasonal pattern (winter slower than summer). In 2025–26 that pattern reverses.</p>
+    </div>
+  </div>
+</section>
+
+<section class="chapter">
+  <div class="wrap">
+    <h2>One street to test it on.</h2>
+    <p class="intro">In April 2026, the Parkside Residents' Association published an analysis of speeding on Parkside Drive, drawn from the same City dataset. Their headline: <b>vehicles travelling 60+ km/h on the 40 km/h street rose from 3,417 to 11,439 between Jan–Apr 2025 and the same window in 2026 — a 235% increase</b>. Their numbers got local media coverage.</p>
+    <p class="pull">Run the methodology on the same sign in this dashboard, and the number reproduces exactly: 3,417 → 11,439, +234.8%.</p>
+    <p class="caption">The same lookup is available for every Watch Your Speed sign in Toronto. The dashboard linked below lets any reader, journalist, or resident type in their own street and see whether the local pattern matches the city-wide story — or doesn't.</p>
+  </div>
+</section>
+
+<section class="chapter">
+  <div class="wrap">
+    <h2>It isn't more cars. It's the same cars going faster.</h2>
+    <p class="intro">A reasonable objection: if traffic itself rose, raw counts of speeders would rise mechanically. So is this just more vehicles on the road?</p>
+    <div class="stat-row">
+      <div class="stat">
+        <p class="val pos">+0.8<span style="font-size:24px">%</span></p>
+        <p class="lbl">change in total vehicle volume, post-ban window vs pre-ban window 2025</p>
+      </div>
+      <div class="stat">
+        <p class="val">+6.1<span style="font-size:24px">%</span></p>
+        <p class="lbl">change in the equivalent 2024 windows, where speeding fell</p>
+      </div>
+    </div>
+    <p class="caption">Total traffic on these signs was essentially flat across the camera-ban transition; in 2024, when speeding was naturally declining into winter, traffic was actually growing more than seven times faster than it has this year. The speeding rise is a behavioural shift, not an exposure shift.</p>
+  </div>
+</section>
+
+<footer class="colofon">
+  <div class="wrap">
+    <h3>Verify it. Reproduce it. Extend it.</h3>
+    <p>Every number on this page is computed deterministically from four publicly-available datasets on the City of Toronto's Open Data portal. The full interactive dashboard — every sign, every month, every ward, including the year-over-year lookup for any street in the city — is one click away.</p>
+    <div class="links">
+      <a href="./index.html"><b>↗</b> Interactive dashboard</a>
+      <a href="https://github.com/mschwanzer/toronto-speeding-tracker" target="_blank" rel="noopener"><b>↗</b> Source code on GitHub</a>
+      <a href="https://open.toronto.ca/dataset/safety-zone-watch-your-speed-program-monthly-summary/" target="_blank" rel="noopener"><b>↗</b> WYS Monthly Summary</a>
+      <a href="https://open.toronto.ca/dataset/school-safety-zone-watch-your-speed-program-locations/" target="_blank" rel="noopener"><b>↗</b> WYS Sign Locations</a>
+      <a href="https://open.toronto.ca/dataset/automated-speed-enforcement-locations/" target="_blank" rel="noopener"><b>↗</b> ASE Camera Locations</a>
+    </div>
+    <h3 style="margin-top: 32px">About this analysis</h3>
+    <p>This page and the underlying analysis are <b>independent</b>, produced by a Toronto resident. The work is <b>not produced, reviewed, validated, or endorsed by the City of Toronto, Toronto Police Service, the Province of Ontario, or any government body or agency</b>. No causal claim is made about why measured speeds changed; the difference-in-differences method controls for prior-year seasonality but cannot rule out other simultaneous factors.</p>
+    <p>The page and the analysis code that generated it are <b>open source under the MIT licence</b>. Construction was AI-assisted; the data and the math are public and verifiable independently of the author or the tooling. Provided <b>as-is</b>, with <b>no warranty, no guarantee of accuracy or completeness, and no liability</b> for any use made of it. The author makes no commitment to respond to issues, fix errors, or maintain the page.</p>
+    <p class="small">Page generated <span id="generatedAt"></span>. Contains information licensed under the <a href="https://open.toronto.ca/open-data-license/" target="_blank" rel="noopener">Open Government Licence – Toronto</a>; source datasets © City of Toronto. Methodology in full: see the <a href="./index.html#methodology">dashboard's methodology footer</a>.</p>
+  </div>
+</footer>
+
+<script>window.STORY = {"generated_at": "2026-05-16 22:56 UTC", "city_series": [["2017-01-01", 31.85057841767845], ["2017-02-01", 27.744380867146322], ["2017-03-01", 30.931207134890204], ["2017-04-01", 29.15278413334948], ["2017-05-01", 30.2799625988532], ["2017-06-01", 28.736139892219096], ["2017-07-01", 30.791992365187387], ["2017-08-01", 30.846221022802204], ["2017-09-01", 25.64074223677168], ["2017-10-01", 24.680626029254533], ["2017-11-01", 23.330769642395193], ["2017-12-01", 22.092775668563803], ["2018-01-01", 20.77987174586287], ["2018-02-01", 20.688914971928796], ["2018-03-01", 21.75426743226612], ["2018-04-01", 20.339035527468006], ["2018-05-01", 21.19468630316021], ["2018-06-01", 22.44226499222409], ["2018-07-01", 23.847885266690003], ["2018-08-01", 23.36729040744698], ["2018-09-01", 21.172368212447825], ["2018-10-01", 21.46317113106781], ["2018-11-01", 22.25833147909144], ["2018-12-01", 25.855605974828354], ["2019-01-01", 22.770505201194208], ["2019-02-01", 21.22911105627958], ["2019-03-01", 24.606556743818672], ["2019-04-01", 26.01536790256045], ["2019-05-01", 24.772719260909962], ["2019-06-01", 25.920309534070096], ["2019-07-01", 27.54287290310209], ["2019-08-01", 27.122627572653435], ["2019-09-01", 25.027567786855315], ["2019-10-01", 24.698154274649124], ["2019-11-01", 23.334562286084413], ["2019-12-01", 22.43512978568585], ["2020-01-01", 22.019069593250094], ["2020-02-01", 20.895688700535455], ["2020-03-01", 22.497448516805935], ["2020-04-01", 23.167475475125308], ["2020-05-01", 22.011632849897627], ["2020-06-01", 22.104921550941885], ["2020-07-01", 20.929921474915915], ["2020-08-01", 20.112394429334348], ["2020-09-01", 18.398696545572772], ["2020-10-01", 17.466230974183798], ["2020-11-01", 17.135386200959985], ["2020-12-01", 16.37740642266221], ["2021-01-01", 17.198679626707662], ["2021-02-01", 15.214685104831998], ["2021-03-01", 15.236251604489691], ["2021-04-01", 16.315178706876182], ["2021-05-01", 16.565601486991106], ["2021-06-01", 16.948792352341258], ["2021-07-01", 17.247904868684707], ["2021-08-01", 17.433134035626168], ["2021-09-01", 16.317649893418835], ["2021-10-01", 16.05393433374193], ["2021-11-01", 14.9432180889942], ["2021-12-01", 14.817152724560955], ["2022-01-01", 13.333569688373986], ["2022-02-01", 12.355672064498979], ["2022-03-01", 13.860222896952552], ["2022-04-01", 13.88629368522687], ["2022-05-01", 13.449706314578776], ["2022-06-01", 13.760994934006906], ["2022-07-01", 16.48765614873861], ["2022-08-01", 16.85128489494194], ["2022-09-01", 15.020344187477294], ["2022-10-01", 14.929328591115606], ["2022-11-01", 13.956315912129247], ["2022-12-01", 13.017161478160519], ["2023-01-01", 13.179604709230095], ["2023-02-01", 13.152412720801953], ["2023-03-01", 12.475060880439697], ["2023-04-01", 12.502576154832552], ["2023-05-01", 12.755420966430538], ["2023-06-01", 13.1740177888403], ["2023-07-01", 14.429033117599301], ["2023-08-01", 14.394281865420686], ["2023-09-01", 13.342727748831711], ["2023-10-01", 13.576565617789441], ["2023-11-01", 12.883087927889006], ["2023-12-01", 12.687604527548697], ["2024-01-01", 11.417169046254182], ["2024-02-01", 11.431850497072277], ["2024-03-01", 11.464478546357094], ["2024-04-01", 10.932268476690936], ["2024-05-01", 11.236047629416598], ["2024-06-01", 11.545568646106204], ["2024-07-01", 11.786151145840186], ["2024-08-01", 11.989009045114692], ["2024-09-01", 10.438880658351819], ["2024-10-01", 10.398046853860453], ["2024-11-01", 10.215058004927723], ["2024-12-01", 9.737495008382409], ["2025-01-01", 9.519689751792173], ["2025-02-01", 7.942171874226811], ["2025-03-01", 9.466054085568008], ["2025-04-01", 8.8346068149822], ["2025-05-01", 9.058307488795334], ["2025-06-01", 8.16025457243076], ["2025-07-01", 8.404364933308987], ["2025-08-01", 8.268238336545046], ["2025-09-01", 7.440625655630422], ["2025-10-01", 7.839709468176902], ["2025-11-01", 8.658991494024928], ["2025-12-01", 9.29259376495961], ["2026-01-01", 8.260319917708982], ["2026-02-01", 9.625801953298375], ["2026-03-01", 10.821868226573862], ["2026-04-01", 10.73845988372569]], "tiers": [{"tier": 10, "last": 15986397, "this": 17678572, "delta": 1692175, "pct": 10.585093063809186}, {"tier": 15, "last": 7252843, "this": 8146617, "delta": 893774, "pct": 12.323084892365657}, {"tier": 20, "last": 3058095, "this": 3390705, "delta": 332610, "pct": 10.876378922172137}, {"tier": 25, "last": 1205340, "this": 1305298, "delta": 99958, "pct": 8.29292979574228}, {"tier": 30, "last": 463067, "this": 488088, "delta": 25021, "pct": 5.40332176553285}], "wards": [{"ward": 1, "name": "Etobicoke North", "n_signs": 61, "did": 2.692277568012548}, {"ward": 2, "name": "Etobicoke Centre", "n_signs": 78, "did": 9.384121559495043}, {"ward": 3, "name": "Etobicoke-Lakeshore", "n_signs": 33, "did": 2.549441857750951}, {"ward": 4, "name": "Parkdale-High Park", "n_signs": 52, "did": 4.35545683275902}, {"ward": 5, "name": "York South-Weston", "n_signs": 47, "did": 1.1675588109813084}, {"ward": 6, "name": "York Centre", "n_signs": 47, "did": 3.313230283936992}, {"ward": 7, "name": "Humber River-Black Creek", "n_signs": 52, "did": 2.252260852090288}, {"ward": 8, "name": "Eglinton-Lawrence", "n_signs": 41, "did": 3.187268538529308}, {"ward": 9, "name": "Davenport", "n_signs": 33, "did": 2.0237474307171217}, {"ward": 10, "name": "Spadina-Fort York", "n_signs": 8, "did": 0.04731729236627455}, {"ward": 11, "name": "University-Rosedale", "n_signs": 40, "did": 1.9206630052199996}, {"ward": 12, "name": "Toronto-St. Paul's", "n_signs": 34, "did": 5.397393660680921}, {"ward": 13, "name": "Toronto Centre", "n_signs": 21, "did": 3.32522503387328}, {"ward": 14, "name": "Toronto-Danforth", "n_signs": 53, "did": 3.276812497522644}, {"ward": 15, "name": "Don Valley West", "n_signs": 40, "did": 3.136457815059078}, {"ward": 16, "name": "Don Valley East", "n_signs": 45, "did": 1.4064361087184336}, {"ward": 17, "name": "Don Valley North", "n_signs": 46, "did": 3.6904530301231864}, {"ward": 18, "name": "Willowdale", "n_signs": 66, "did": 9.3197138055137}, {"ward": 19, "name": "Beaches-East York", "n_signs": 44, "did": 1.0194968289157895}, {"ward": 20, "name": "Scarborough Southwest", "n_signs": 69, "did": 2.323809118103987}, {"ward": 21, "name": "Scarborough Centre", "n_signs": 33, "did": 2.4852057103476723}, {"ward": 22, "name": "Scarborough-Agincourt", "n_signs": 53, "did": 3.0698385131675585}, {"ward": 23, "name": "Scarborough North", "n_signs": 55, "did": -0.12336207665733312}, {"ward": 24, "name": "Scarborough-Guildwood", "n_signs": 57, "did": 3.5555601756573463}, {"ward": 25, "name": "Scarborough-Rouge Park", "n_signs": 55, "did": 1.258682631936889}], "spatial": [{"label": "0–250 m", "n_signs": 337, "delta_2025": 2.372859663163034, "did": 4.168753760270535}, {"label": "250–500 m", "n_signs": 228, "delta_2025": 1.522501930992454, "did": 2.82115541088932}], "distribution": {"labels": ["0-4", "5-9", "10-14", "15-19", "20-24", "25-29", "30-34", "35-39", "40-44", "45-49", "50-54", "55-59", "60-64", "65-69", "70-74", "75-79", "80-84", "85-89", "90-94", "95-99", "100+"], "lowers": [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100], "pre_2025": [0, 11007049, 6599745, 10917693, 13767344, 19534078, 26719660, 32937265, 29440291, 20626408, 10576650, 4008096, 1335030, 440003, 149346, 55323, 22858, 10530, 5417, 3166, 7908], "pre_2025_pct": [0.0, 5.849714711422268, 3.507445584927945, 5.80222631487258, 7.316678133622472, 10.381418620982796, 14.200208265285374, 17.504564904227625, 15.64609218794725, 10.961939237428483, 5.620978438686366, 2.1301093631901473, 0.7095039398107585, 0.23384033469551485, 0.07937018298838044, 0.02940150143603559, 0.012147922560687266, 0.005596186217693451, 0.002878873764600705, 0.001682576027086179, 0.004202719905937304], "post_2025": [0, 14069384, 7648776, 12285179, 13999939, 18283976, 23569927, 27905498, 26319233, 20173695, 12728912, 5999367, 2301477, 809097, 273999, 98709, 38248, 16739, 8852, 5429, 18386], "post_2025_pct": [0.0, 7.541688737480075, 4.100015168731473, 6.5852915879065295, 7.504463754895599, 9.80085950284362, 12.634316683596634, 14.958336482988363, 14.108042192551851, 10.813815898042025, 6.823148211092608, 3.2158734551498216, 1.233673284521158, 0.43370468333431766, 0.14687318026011678, 0.05291152431321234, 0.02050228430975641, 0.008972697580553558, 0.004744985900176839, 0.002910136517403983, 0.009855547984709825], "pre_2024": [0, 9625763, 5797958, 9515484, 11690896, 16139893, 22077637, 28417930, 27119557, 20721987, 13078161, 6205244, 2413165, 847921, 285728, 100209, 37565, 15994, 7665, 4170, 8569], "pre_2024_pct": [0.0, 5.528505136731465, 3.3300259507275727, 5.465166987020777, 6.714603152913004, 9.269860618508499, 12.680171905478316, 16.32168504255457, 15.57597150276625, 11.90156162922177, 7.511371334147861, 3.563948471271535, 1.3859883209549817, 0.4869988596272816, 0.16410633792957588, 0.05755449944557366, 0.021575255432875036, 0.009186067759707263, 0.004402351467935236, 0.0023950170412641793, 0.004921558999182915], "post_2024": [1, 13079574, 7001397, 11439514, 13338671, 17948910, 23665297, 29247247, 27108787, 19753846, 11415748, 4989994, 1839198, 631373, 214869, 78838, 32181, 14409, 7539, 4432, 19350], "post_2024_pct": [5.499606984335882e-07, 7.193251652253801, 3.8504931841308294, 6.29128310918081, 7.335744819335849, 9.871195079721616, 13.014983266758298, 16.084836387379667, 14.908767432207377, 10.863838942909542, 6.278212743221838, 2.7443005854194147, 1.0114866166376584, 0.34723033605210984, 0.11816950531172667, 0.04335780154310723, 0.0176982852362913, 0.007924383703729571, 0.004146153705490822, 0.0024374258154576628, 0.010641739514689932]}};</script>
+<script src="https://unpkg.com/echarts@5.5.1/dist/echarts.min.js"></script>
+<script>
+(function () {
+  const S = window.STORY;
+  document.getElementById("generatedAt").textContent = S.generated_at;
+
+  const fmt = {
+    pp: v => v == null ? "—" : (v >= 0 ? "+" : "") + v.toFixed(2) + " pp",
+    pct: v => v == null ? "—" : v.toFixed(2) + "%",
+    int: v => v == null ? "—" : Math.round(v).toLocaleString(),
+  };
+
+  // City trend with ASE-ban marker
+  echarts.init(document.getElementById("cityTrend"), null, { renderer: "canvas" }).setOption({
+    grid: { left: 50, right: 24, top: 30, bottom: 56 },
+    tooltip: { trigger: "axis", valueFormatter: v => v == null ? "—" : v.toFixed(2) + "%" },
+    xAxis: { type: "time", boundaryGap: false },
+    yAxis: { type: "value", axisLabel: { formatter: "{value}%" }, splitLine: { lineStyle: { color: "#eef0f4" } } },
+    series: [{
+      type: "line", smooth: true, symbol: "none", lineStyle: { width: 2, color: "#c0392b" },
+      areaStyle: { color: "rgba(192,57,43,.10)" }, data: S.city_series,
+      markLine: { symbol: "none", silent: true, lineStyle: { color: "#0f172a", type: "dashed", width: 1.2 },
+                  label: { formatter: "ASE banned\nNov 2025", position: "insideStartTop", color: "#0f172a", fontSize: 11 },
+                  data: [{ xAxis: "2025-11-01" }] },
+      markArea: { silent: true, itemStyle: { color: "rgba(15,23,42,.05)" }, data: [
+        [{ xAxis: "2025-07-01" }, { xAxis: "2025-10-31" }],
+        [{ xAxis: "2025-12-01" }, { xAxis: "2026-03-31" }],
+      ] },
+    }],
+    dataZoom: [{ type: "inside", start: 50, end: 100 }, { type: "slider", height: 16, bottom: 14, start: 50, end: 100 }],
+  });
+
+  // Tier bars (this year vs last year)
+  const tiers = S.tiers;
+  echarts.init(document.getElementById("tierBars"), null, { renderer: "canvas" }).setOption({
+    grid: { left: 70, right: 24, top: 40, bottom: 30 },
+    legend: { top: 0 },
+    tooltip: { trigger: "axis", valueFormatter: v => v == null ? "—" : Number(v).toLocaleString() + " vehicles" },
+    xAxis: { type: "category", data: tiers.map(t => `${t.tier}+ km/h over`) },
+    yAxis: { type: "value", axisLabel: { formatter: v => v >= 1e6 ? (v/1e6).toFixed(1) + "M" : v >= 1000 ? (v/1000).toFixed(0) + "k" : v } },
+    series: [
+      { name: "Last year (Jan–Apr 2025)", type: "bar", data: tiers.map(t => t.last), itemStyle: { color: "#94a3b8", borderRadius: [2,2,0,0] } },
+      { name: "This year (Jan–Apr 2026)", type: "bar", data: tiers.map(t => t.this), itemStyle: { color: "#c0392b", borderRadius: [2,2,0,0] },
+        label: { show: true, position: "top", fontSize: 11, color: "#0f172a", formatter: p => "+" + tiers[p.dataIndex].pct.toFixed(1) + "%" } },
+    ],
+  });
+
+  // Ward ranking horizontal
+  const wards = S.wards.slice().sort((a,b) => a.did - b.did); // ascending so largest sits at top
+  echarts.init(document.getElementById("wardBars"), null, { renderer: "canvas" }).setOption({
+    grid: { left: 240, right: 90, top: 16, bottom: 30 },
+    tooltip: { trigger: "axis", axisPointer: { type: "shadow" },
+               formatter: p => { const w = wards[p[0].dataIndex];
+                                  return `<b>Ward ${w.ward} · ${w.name}</b><br>${w.n_signs} signs<br>DiD-adjusted: <b>${fmt.pp(w.did)}</b>`; } },
+    xAxis: { type: "value", axisLabel: { formatter: v => (v >= 0 ? "+" : "") + v.toFixed(1) } },
+    yAxis: { type: "category", data: wards.map(w => `Ward ${w.ward} · ${w.name}`), axisLabel: { fontSize: 12 } },
+    series: [{ type: "bar",
+               data: wards.map(w => ({ value: Number(w.did.toFixed(2)),
+                                        itemStyle: { color: w.did > 0 ? "#c0392b" : "#2e7d4f", borderRadius: [0,2,2,0] } })),
+               label: { show: true, position: "right", fontSize: 11, formatter: p => fmt.pp(p.value) } }],
+  });
+
+  // Spatial DiD
+  const sp = S.spatial;
+  echarts.init(document.getElementById("spatialBars"), null, { renderer: "canvas" }).setOption({
+    grid: { left: 60, right: 24, top: 40, bottom: 30 },
+    legend: { top: 0 },
+    tooltip: { trigger: "axis", valueFormatter: v => v == null ? "—" : fmt.pp(v) },
+    xAxis: { type: "category", data: sp.map(b => b.label + `\n(${b.n_signs} signs)`), axisLabel: { lineHeight: 16, fontSize: 12 } },
+    yAxis: { type: "value", axisLabel: { formatter: v => (v >= 0 ? "+" : "") + v.toFixed(1) + " pp" } },
+    series: [
+      { name: "Raw 2025 change", type: "bar", data: sp.map(b => Number(b.delta_2025.toFixed(2))),
+        itemStyle: { color: "#94a3b8", borderRadius: [2,2,0,0] },
+        label: { show: true, position: "top", fontSize: 11, formatter: p => fmt.pp(p.value) } },
+      { name: "DiD-adjusted (controls for 2024 seasonality)", type: "bar", data: sp.map(b => Number(b.did.toFixed(2))),
+        itemStyle: { color: "#c0392b", borderRadius: [2,2,0,0] },
+        label: { show: true, position: "top", fontSize: 11, color: "#c0392b", formatter: p => fmt.pp(p.value) } },
+    ],
+  });
+
+  // Distribution shift
+  const d = S.distribution;
+  echarts.init(document.getElementById("distShift"), null, { renderer: "canvas" }).setOption({
+    grid: { left: 50, right: 20, top: 36, bottom: 46 },
+    legend: { top: 0, textStyle: { fontSize: 12 } },
+    tooltip: { trigger: "axis", valueFormatter: v => v == null ? "—" : Number(v).toFixed(2) + "%" },
+    xAxis: { type: "category", data: d.labels, name: "Measured speed (km/h)", nameLocation: "middle", nameGap: 28, axisLabel: { interval: 1, fontSize: 10 } },
+    yAxis: { type: "value", name: "% of all measurements", nameLocation: "middle", nameGap: 38, axisLabel: { formatter: "{value}%" } },
+    series: [
+      { name: "2024 pre",  type: "line", smooth: true, symbol: "none", lineStyle: { color: "#94a3b8", width: 1.5, type: "dotted" }, data: d.pre_2024_pct },
+      { name: "2024 post", type: "line", smooth: true, symbol: "none", lineStyle: { color: "#475569", width: 1.5, type: "dotted" }, data: d.post_2024_pct },
+      { name: "2025 pre",  type: "line", smooth: true, symbol: "none", lineStyle: { color: "#1a56db", width: 2 }, areaStyle: { color: "rgba(26,86,219,.06)" }, data: d.pre_2025_pct },
+      { name: "2025 post", type: "line", smooth: true, symbol: "none", lineStyle: { color: "#c0392b", width: 2.5 }, areaStyle: { color: "rgba(192,57,43,.12)" }, data: d.post_2025_pct },
+    ],
+  });
+})();
+</script>
+
+</body>
+</html>

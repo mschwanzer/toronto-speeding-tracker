@@ -20,6 +20,7 @@ from ckan import iter_csv
 log = logging.getLogger(__name__)
 
 TEMPLATE = Path(__file__).parent / "templates" / "index.html.tmpl"
+STORY_TEMPLATE = Path(__file__).parent / "templates" / "story.html.tmpl"
 
 
 def _series(monthly_map: dict[str, dict], months: list[str], key: str = "weighted") -> list[list]:
@@ -111,7 +112,8 @@ def build_summary(signs: dict[str, dict], rows: list[dict], ase: list[dict],
                   yoy_top: dict[int, list] | None = None,
                   nearest_ase: dict[str, dict] | None = None,
                   spatial_did: dict | None = None,
-                  bin_counts: dict[str, int] | None = None) -> dict:
+                  bin_counts: dict[str, int] | None = None,
+                  ase_camera_ranked: list | None = None) -> dict:
     latest = latest_per_sign(signs_monthly, n_months=3)
 
     # ward summary (with last-24-month sparkline series)
@@ -204,6 +206,9 @@ def build_summary(signs: dict[str, dict], rows: list[dict], ase: list[dict],
         out["yoy_top"] = yoy_top
     out["yoy_tiers"] = list(TIERS_OVER)
 
+    if ase_camera_ranked is not None:
+        out["ase_camera_ranked"] = ase_camera_ranked
+
     if spatial_did is not None:
         # Emit bins in canonical order, including zero-sign bins as nulls.
         labels = DISTANCE_BIN_LABELS
@@ -267,13 +272,49 @@ def build_full(signs_monthly: dict[str, dict[str, float]],
     return out
 
 
-def render(summary: dict, full: dict, out_dir: Path) -> tuple[Path, Path]:
+def build_story_payload(summary: dict) -> dict:
+    """Compress the dashboard summary into a small payload tailored to the
+    story-page narrative. Pulls only the fields the story actually plots."""
+    tiers_data = []
+    for t in summary.get("yoy_tiers", []):
+        tr = summary["yoy_city"]["tiers"].get(str(t)) or summary["yoy_city"]["tiers"].get(t)
+        if tr is None:
+            continue
+        tiers_data.append({
+            "tier": t,
+            "last": tr["last"], "this": tr["this"],
+            "delta": tr["delta"], "pct": tr["pct_change"],
+        })
+    wards = [{
+        "ward": w["ward"], "name": w["name"], "n_signs": w["n_signs"], "did": w["did"],
+    } for w in summary.get("ward_summary", []) if w.get("did") is not None]
+    spatial = [{
+        "label": b["label"], "n_signs": b["n_signs"],
+        "delta_2025": b["delta_2025"], "did": b["did"],
+    } for b in summary.get("spatial_did", []) if b.get("did") is not None]
+    return {
+        "generated_at": summary["generated_at"],
+        "city_series": summary["city_series"],
+        "tiers": tiers_data,
+        "wards": wards,
+        "spatial": spatial,
+        "distribution": summary["distribution"],
+    }
+
+
+def render(summary: dict, full: dict, out_dir: Path) -> tuple[Path, Path, Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
+    # Main dashboard
     tpl = TEMPLATE.read_text(encoding="utf-8")
-    # Inline summary using JSON's default ASCII-safe encoding (no quote conflicts).
     html = tpl.replace("{{SUMMARY_JSON}}", json.dumps(summary, ensure_ascii=False))
     index_path = out_dir / "index.html"
     data_path = out_dir / "data.json"
     index_path.write_text(html, encoding="utf-8")
     data_path.write_text(json.dumps(full, ensure_ascii=False))
-    return index_path, data_path
+    # Story page
+    story_tpl = STORY_TEMPLATE.read_text(encoding="utf-8")
+    story_payload = build_story_payload(summary)
+    story_html = story_tpl.replace("{{STORY_JSON}}", json.dumps(story_payload, ensure_ascii=False))
+    story_path = out_dir / "story.html"
+    story_path.write_text(story_html, encoding="utf-8")
+    return index_path, data_path, story_path

@@ -23,11 +23,12 @@ if str(HERE) not in sys.path:
 
 from ckan import CKANClient                       # noqa: E402
 from aggregate import (                            # noqa: E402
-    aggregate_city, aggregate_distance, aggregate_distribution, aggregate_sign,
-    aggregate_sign_volume, aggregate_ward, aggregate_yoy_city, all_months,
-    assign_distance_bin, compute_nearest_ase, compute_prepost,
-    compute_prepost_groups, compute_yoy_segments, load_ase, load_monthly,
-    load_signs, top_movers, top_yoy_increases,
+    aggregate_by_ase_camera, aggregate_city, aggregate_distance,
+    aggregate_distribution, aggregate_sign, aggregate_sign_volume,
+    aggregate_ward, aggregate_yoy_city, all_months, assign_distance_bin,
+    compute_nearest_ase, compute_prepost, compute_prepost_groups,
+    compute_yoy_segments, load_ase, load_monthly, load_signs,
+    top_ase_camera_movers, top_movers, top_yoy_increases,
 )
 from render import build_full, build_summary, latest_bins_per_sign, render  # noqa: E402
 import hourly as _hourly                            # noqa: E402
@@ -118,6 +119,13 @@ def main(argv: list[str] | None = None) -> int:
                  dists[0], dists[len(dists)//2], dists[-1], len(dists))
         log.info("  signs per bin: %s", bin_counts)
 
+    log.info("aggregating by individual ASE camera (≤500 m)")
+    ase_groups = aggregate_by_ase_camera(rows, nearest_ase, max_distance_m=500)
+    ase_prepost = compute_prepost_groups(ase_groups)
+    ase_camera_ranked = top_ase_camera_movers(ase_prepost, nearest_ase, ase,
+                                              max_distance_m=500, min_signs=1, n=25)
+    log.info("  %d ASE cameras with at least 1 nearby sign within 500 m", len(ase_camera_ranked))
+
     log.info("computing pre/post difference-in-differences")
     prepost = compute_prepost(city, wards, signs_monthly, signs)
     log.info("city headline: pre=%.2f post=%.2f Δ=%s DiD=%s",
@@ -157,14 +165,16 @@ def main(argv: list[str] | None = None) -> int:
                             prepost, months, distribution, movers, hourly_profiles,
                             yoy_city=yoy_city, yoy_top=yoy_top,
                             nearest_ase=nearest_ase, spatial_did=distance_prepost,
-                            bin_counts=bin_counts)
+                            bin_counts=bin_counts,
+                            ase_camera_ranked=ase_camera_ranked)
     full = build_full(signs_monthly, signs_volume, wards, months, bins,
                       hourly_profiles, yoy_per_sign=yoy_per_sign)
 
     log.info("rendering HTML to %s", OUTPUT_DIR)
-    index_path, data_path = render(summary, full, OUTPUT_DIR)
+    index_path, data_path, story_path = render(summary, full, OUTPUT_DIR)
     log.info("wrote %s (%.1f KB)", index_path, index_path.stat().st_size / 1024)
     log.info("wrote %s (%.1f KB)", data_path, data_path.stat().st_size / 1024)
+    log.info("wrote %s (%.1f KB)", story_path, story_path.stat().st_size / 1024)
     log.info("done — open %s in a browser", (PUBLISH_DIR or OUTPUT_DIR) / "index.html")
 
     # Stage the publish/ directory for GitHub Pages.
@@ -173,6 +183,7 @@ def main(argv: list[str] | None = None) -> int:
         PUBLISH_DIR.mkdir(parents=True, exist_ok=True)
         shutil.copy2(index_path, PUBLISH_DIR / "index.html")
         shutil.copy2(data_path, PUBLISH_DIR / "data.json")
+        shutil.copy2(story_path, PUBLISH_DIR / "story.html")
 
         # Stage the source code as well so anyone can clone + reproduce.
         src_dir = PUBLISH_DIR / "src"
