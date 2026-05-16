@@ -66,9 +66,10 @@
   #signBins { width: 100%; height: 240px; }
   #signHourChart { width: 100%; height: 240px; }
   #signDowChart { width: 100%; height: 180px; }
-  #unusualChart { width: 100%; height: 420px; }
   #yoyTierChart { width: 100%; height: 320px; }
   #yoyTopChart { width: 100%; height: 540px; }
+  #spatialChart { width: 100%; height: 340px; }
+  #wardRankChart { width: 100%; height: 620px; }
   .yoy-tile-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
   .yoy-tile { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px; }
   .yoy-tile .tier { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-soft); }
@@ -151,6 +152,17 @@
 </section>
 
 <section class="wrap">
+  <div class="card" id="spatialCard" style="display:none">
+    <div class="head">
+      <h2 style="margin:0">Speeding change by distance to the nearest ASE camera</h2>
+      <span class="small">Spatial difference-in-differences · Jul–Oct vs Dec–Mar windows</span>
+    </div>
+    <p class="small" style="margin-top:0">A reader asked whether the analysis could be done <i>spatially</i> instead of just temporally. This grouping does exactly that: each WYS sign is assigned to a bin by how far it sits from its nearest Automated Speed Enforcement camera point. If the ASE removal is what's driving the change, signs <i>close</i> to former camera locations should show a larger pre/post jump than signs far away. The DiD-adjusted bars also subtract the same windows in 2024 to strip seasonality. (ASE locations published by the City include formerly-active and planned points; no install/removal dates are published, so "near" = "near a designated ASE location," not a guarantee enforcement was active at that point.)</p>
+    <div id="spatialChart"></div>
+  </div>
+</section>
+
+<section class="wrap">
   <div class="card">
     <div class="head">
       <h2 style="margin:0">Streets with the largest jump in speeders</h2>
@@ -218,6 +230,20 @@
 </section>
 
 <section class="wrap">
+  <div class="card">
+    <div class="head">
+      <h2 style="margin:0">Wards ranked by speeding increase</h2>
+      <span class="tier-filter" id="wardRankMetric">
+        <button data-metric="did" class="active">DiD-adjusted</button>
+        <button data-metric="delta_2025">Raw 2025 Δ</button>
+      </span>
+    </div>
+    <p class="small" style="margin-top:0">All 25 wards sorted by change in volume-weighted "% &gt;10 km/h over the limit," post-ban (Dec 2025–Mar 2026) vs pre-ban (Jul–Oct 2025). The <b>DiD-adjusted</b> view subtracts the same delta in 2024 to strip out winter-vs-summer seasonality. Click any bar to open that ward's panel.</p>
+    <div id="wardRankChart"></div>
+  </div>
+</section>
+
+<section class="wrap">
   <h2>Browse by ward</h2>
   <p class="small">Each card shows the ward's volume-weighted trend over the last 24 months and its DiD-adjusted change (post-ban vs pre-ban, minus the same delta in 2024). Click to expand.</p>
   <div class="ward-grid" id="wardGrid"></div>
@@ -264,17 +290,6 @@
   </div>
 </section>
 
-<section class="wrap" id="unusualSection" style="display:none">
-  <div class="card">
-    <div class="head">
-      <h2 style="margin:0">Signs with unusual time-of-day patterns</h2>
-      <span class="small">2023 baseline · click to inspect</span>
-    </div>
-    <p class="small" style="margin-top:0">Each sign's weekday hour-of-day shape is compared to the city-wide average shape. Larger bars = pattern further from the typical commuter profile (e.g. signs near schools with sharp peak-hour bumps, or arterials with prolonged plateaus). Useful for finding streets whose volume pattern shifted post-pandemic, near event venues, or in neighbourhoods with back-to-office changes.</p>
-    <div id="unusualChart"></div>
-  </div>
-</section>
-
 <footer>
   <div class="wrap">
     <h3>About this analysis</h3>
@@ -290,6 +305,7 @@
       <li><b>Year-over-year tier counts</b> ("Total speeders" card). Same per-row bin rule, applied for each tier (10+, 15+, 20+, 25+, 30+ over). City totals include only the <i>733 signs that reported in both Jan-Apr&nbsp;2025 and Jan-Apr&nbsp;2026</i>, so the comparison is apples-to-apples.</li>
       <li><b>Aggregation</b>: city and ward series are <i>volume-weighted</i> means across signs (a high-traffic arterial counts more than a quiet street). Per-sign series are direct monthly readings.</li>
       <li><b>Difference-in-differences (DiD)</b>: the post-ban window (Dec&nbsp;2025–Mar&nbsp;2026) minus the pre-ban window (Jul–Oct&nbsp;2025) — and the same delta in 2024 as a seasonal control — subtracted. <b>The DiD number is the honest headline</b>: it filters out year-over-year seasonality (winter weather, school sessions, etc.).</li>
+      <li><b>Spatial DiD by distance to ASE camera</b>: signs are grouped into bins by great-circle distance (haversine) to their nearest published ASE camera point. The same pre/post 2025 windows are computed per bin (raw delta), and again with the 2024 control subtracted (DiD-adjusted). ASE locations as published include both formerly-active and planned points; the City does not publish install/removal dates, so "near an ASE camera" is best read as "near a location designated for automated enforcement at some point," not a guarantee enforcement was historically active.</li>
       <li><b>Sign relocation</b>: <code>sign_id</code> is intended to be stable, but a sign can occasionally be reassigned. Per-sign deltas on the most extreme outliers warrant a sanity-check against the address.</li>
       <li><b>ASE camera dataset</b> records current status only — Toronto does not publish install/removal dates. The Province's November&nbsp;2025 ban removed automated enforcement city-wide, not just at the points shown on the map.</li>
       <li><b>Hourly profiles</b> are a 2023 baseline. Toronto stopped publishing the detailed hourly archive after 2023, so the "typical day" charts cannot be updated to the post-ban era — they show each sign's pre-ban traffic pattern of life.</li>
@@ -354,6 +370,48 @@
         <div class="sub">post − pre, minus same delta in 2024</div></div>`;
     document.getElementById("kpis").innerHTML = html;
     document.getElementById("refreshedAt").textContent = S.generated_at;
+  }
+
+  // ---------- spatial DiD (distance to nearest ASE) ----------
+  function renderSpatial() {
+    if (!S.spatial_did || !S.spatial_did.length) return;
+    const data = S.spatial_did;
+    // Only show bins with at least a few signs; tiny bins are too noisy
+    const visible = data.filter(d => d.n_signs >= 5 && d.delta_2025 != null);
+    if (!visible.length) return;
+    document.getElementById("spatialCard").style.display = "";
+    const chart = echarts.init(document.getElementById("spatialChart"), null, { renderer: "canvas" });
+    chart.setOption({
+      grid: { left: 70, right: 24, top: 40, bottom: 50 },
+      legend: { top: 0, textStyle: { fontSize: 12 } },
+      tooltip: {
+        trigger: "axis", axisPointer: { type: "shadow" },
+        formatter: p => {
+          const i = p[0].dataIndex; const it = visible[i];
+          return `<b>${it.label}</b><br>${it.n_signs} signs in this bin<br>` +
+                 `2025 pre: ${fmt.pct(it.pre_2025)} → post: ${fmt.pct(it.post_2025)} (${fmt.pp(it.delta_2025)})<br>` +
+                 `2024 same windows: ${fmt.pp(it.delta_2024)}<br>` +
+                 `<b>DiD-adjusted: ${fmt.pp(it.did)}</b>`;
+        },
+      },
+      xAxis: { type: "category", data: visible.map(d => d.label + `\n(${d.n_signs})`), axisLabel: { fontSize: 11, lineHeight: 14 } },
+      yAxis: { type: "value", axisLabel: { formatter: v => (v >= 0 ? "+" : "") + v.toFixed(1) + " pp" }, splitLine: { lineStyle: { color: "#eef0f4" } } },
+      series: [
+        {
+          name: "Raw 2025 change (post − pre)", type: "bar",
+          data: visible.map(d => d.delta_2025 == null ? null : Number(d.delta_2025.toFixed(2))),
+          itemStyle: { color: "#94a3b8", borderRadius: [2,2,0,0] },
+          label: { show: true, position: "top", fontSize: 10, formatter: p => fmt.pp(p.value) },
+        },
+        {
+          name: "DiD-adjusted (subtracts 2024 control)", type: "bar",
+          data: visible.map(d => d.did == null ? null : Number(d.did.toFixed(2))),
+          itemStyle: { color: "#c0392b", borderRadius: [2,2,0,0] },
+          label: { show: true, position: "top", fontSize: 10, color: "#c0392b", formatter: p => fmt.pp(p.value) },
+        },
+      ],
+    });
+    window.addEventListener("resize", () => chart.resize());
   }
 
   // ---------- year-over-year tier comparison ----------
@@ -638,6 +696,66 @@
     setTimeout(() => map.invalidateSize(), 100);
   }
 
+  // ---------- ward ranking ----------
+  function renderWardRank(metric) {
+    metric = metric || "did";
+    const valid = S.ward_summary.filter(w => w[metric] != null);
+    // Sort ascending so the LARGEST value lands at the TOP of a horizontal-bar y-axis
+    const data = valid.slice().sort((a, b) => a[metric] - b[metric]);
+    let chart = window._wardRankChart;
+    if (!chart) {
+      chart = echarts.init(document.getElementById("wardRankChart"), null, { renderer: "canvas" });
+      window._wardRankChart = chart;
+      window.addEventListener("resize", () => chart.resize());
+      chart.on("click", p => {
+        const it = (window._wardRankSorted || [])[p.dataIndex];
+        if (it) openWard(it.ward);
+      });
+    }
+    window._wardRankSorted = data;
+    window._wardRankMetric = metric;
+    chart.setOption({
+      grid: { left: 240, right: 100, top: 16, bottom: 30 },
+      tooltip: {
+        trigger: "axis", axisPointer: { type: "shadow" },
+        formatter: p => {
+          const it = data[p[0].dataIndex];
+          const sign = (v) => v == null ? "—" : (v >= 0 ? "+" : "") + v.toFixed(2) + " pp";
+          return `<b>Ward ${it.ward} · ${it.name}</b><br>${it.n_signs} signs · latest ${fmt.pct(it.latest)}<br>Raw 2025 Δ: ${sign(it.delta_2025)}<br>DiD-adjusted: ${sign(it.did)}<br><i>Click to open</i>`;
+        },
+      },
+      xAxis: {
+        type: "value",
+        name: metric === "did" ? "DiD-adjusted change (pp)" : "Raw 2025 change (pp)",
+        nameLocation: "middle", nameGap: 22,
+        axisLabel: { formatter: v => (v >= 0 ? "+" : "") + v.toFixed(1) },
+      },
+      yAxis: {
+        type: "category",
+        data: data.map(w => `Ward ${w.ward} · ${w.name}`),
+        axisLabel: { fontSize: 12 },
+      },
+      series: [{
+        type: "bar",
+        data: data.map(w => ({
+          value: Number(w[metric].toFixed(2)),
+          itemStyle: { color: w[metric] > 0 ? "#c0392b" : "#2e7d4f", borderRadius: [0, 2, 2, 0] },
+        })),
+        label: {
+          show: true, position: "right", fontSize: 11, color: "#0f172a",
+          formatter: p => (p.value >= 0 ? "+" : "") + p.value.toFixed(2) + " pp",
+        },
+      }],
+    });
+  }
+
+  document.addEventListener("click", e => {
+    const b = e.target.closest("#wardRankMetric button");
+    if (!b) return;
+    document.querySelectorAll("#wardRankMetric button").forEach(x => x.classList.toggle("active", x === b));
+    renderWardRank(b.dataset.metric);
+  });
+
   // ---------- ward grid + panel ----------
   let wardChart = null;
   let wardAdtChart = null;
@@ -780,7 +898,13 @@
     const panel = document.getElementById("signPanel");
     panel.classList.add("open");
     document.getElementById("signPanelTitle").textContent = sign.name || sign.address || ("Sign " + sid);
-    document.getElementById("signPanelMeta").textContent = `Ward ${sign.ward} · ${sign.address || ""} · Limit ${sign.limit} km/h`;
+    const aseLine = sign.nearest_ase_m == null
+      ? ""
+      : (sign.nearest_ase_m > 5000
+          ? " · Nearest ASE: >5 km"
+          : ` · Nearest ASE: ${Math.round(sign.nearest_ase_m).toLocaleString()} m`);
+    document.getElementById("signPanelMeta").textContent =
+      `Ward ${sign.ward} · ${sign.address || ""} · Limit ${sign.limit} km/h${aseLine}`;
     panel.scrollIntoView({ behavior: "smooth", block: "start" });
 
     const data = await ensureFull();
@@ -908,66 +1032,55 @@
     if (!signBinsChart) signBinsChart = echarts.init(document.getElementById("signBins"), null, { renderer: "canvas" });
     if (bins) {
       const cutoff = sign.limit;
+      const hasPrior = bins.prior_values && bins.prior_values.length === bins.values.length;
+      const series = [];
+      // Prior-year bars (left of each pair, neutral gray)
+      if (hasPrior) {
+        series.push({
+          name: `Last year (${bins.prior_month})`,
+          type: "bar",
+          data: bins.prior_values,
+          itemStyle: { color: "rgba(100,116,139,0.85)", borderRadius: [2, 2, 0, 0] },
+        });
+      }
+      // This year (right of each pair), colored by speed-over-limit
+      const limitIdx = bins.lowers.indexOf(cutoff);
+      series.push({
+        name: `This year (${bins.month})`,
+        type: "bar",
+        data: bins.values.map((v, i) => ({
+          value: v,
+          itemStyle: { color: bins.lowers[i] >= cutoff + 10 ? "#c0392b" : (bins.lowers[i] > cutoff ? "#f0a000" : "#2e7d4f"), borderRadius: [2, 2, 0, 0] },
+        })),
+        markLine: {
+          symbol: "none", silent: true,
+          data: limitIdx >= 0 ? [{ xAxis: limitIdx - 0.5 }] : [],
+          lineStyle: { color: "#0f172a", type: "dashed" },
+          label: { formatter: `Posted ${cutoff} km/h`, color: "#0f172a", fontSize: 11 },
+        },
+      });
       signBinsChart.setOption({
-        grid: { left: 40, right: 16, top: 16, bottom: 40 },
-        tooltip: { trigger: "axis", valueFormatter: v => v == null ? "—" : Number(v).toLocaleString() + " vehicles" },
+        grid: { left: 50, right: 16, top: 36, bottom: 40 },
+        legend: { top: 0, textStyle: { fontSize: 12 } },
+        tooltip: { trigger: "axis", valueFormatter: v => v == null ? "—" : Number(v).toLocaleString() + " veh" },
         xAxis: { type: "category", data: bins.labels, axisLabel: { rotate: 0, interval: 1, fontSize: 10 } },
         yAxis: { type: "value", axisLabel: { formatter: v => v >= 1000 ? (v/1000).toFixed(0) + "k" : v } },
-        series: [{
-          type: "bar", data: bins.values.map((v, i) => ({
-            value: v,
-            itemStyle: { color: bins.lowers[i] >= cutoff + 10 ? "#c0392b" : (bins.lowers[i] > cutoff ? "#f0a000" : "#2e7d4f") }
-          })),
-          markLine: {
-            symbol: "none", silent: true, data: [{ xAxis: bins.labels.findIndex(l => Number(bins.lowers[bins.labels.indexOf(l)]) === cutoff) }],
-            lineStyle: { color: "#0f172a", type: "dashed" },
-            label: { formatter: `Posted ${cutoff} km/h`, color: "#0f172a" },
-          },
-        }],
+        series,
       });
     }
-  }
-
-  // ---------- unusual patterns leaderboard ----------
-  function renderUnusual() {
-    if (!S.unusual_patterns || !S.unusual_patterns.length) return;
-    document.getElementById("unusualSection").style.display = "";
-    const data = S.unusual_patterns.slice().reverse();
-    const chart = echarts.init(document.getElementById("unusualChart"), null, { renderer: "canvas" });
-    chart.setOption({
-      grid: { left: 280, right: 80, top: 16, bottom: 30 },
-      tooltip: {
-        trigger: "axis", axisPointer: { type: "shadow" },
-        formatter: p => {
-          const it = data[p[0].dataIndex];
-          return `<b>${it.name}</b><br>Ward ${it.ward} · limit ${it.limit} km/h<br>Pattern distance: ${it.pattern_distance.toFixed(3)}<br>2023 total: ${it.total_volume.toLocaleString()} vehicles<br><i>Click to inspect</i>`;
-        },
-      },
-      xAxis: { type: "value", name: "Distance from city avg shape", nameLocation: "middle", nameGap: 22, axisLabel: { formatter: v => v.toFixed(2) } },
-      yAxis: { type: "category", data: data.map(x => x.name.length > 38 ? x.name.slice(0, 36) + "…" : x.name), axisLabel: { fontSize: 12 } },
-      series: [{
-        type: "bar",
-        data: data.map(x => ({ value: x.pattern_distance, itemStyle: { color: "#7c3aed", borderRadius: [0,2,2,0] } })),
-        label: { show: true, position: "right", formatter: p => p.value.toFixed(2), fontSize: 11 },
-      }],
-    });
-    chart.on("click", p => {
-      const it = data[p.dataIndex];
-      if (it) openSign(it.sign_id);
-    });
-    window.addEventListener("resize", () => chart.resize());
   }
 
   // ---------- init ----------
   renderKPIs();
   renderYoY();
   renderYoYTop(20);
+  renderSpatial();
   renderCityChart();
   renderDistribution();
   renderMap();
   renderMovers();
+  renderWardRank();
   renderWardGrid();
-  renderUnusual();
 
   // Auto-open Mimico-area ward (Etobicoke-Lakeshore, Ward 3) if present
   const mimico = S.ward_summary.find(w => w.ward === 3);

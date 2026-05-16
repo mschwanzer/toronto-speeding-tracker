@@ -9,7 +9,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from aggregate import (
-    BIN_LABELS, BIN_LOWERS, TIERS_OVER, WARD_NAMES,
+    BIN_LABELS, BIN_LOWERS, DISTANCE_BIN_LABELS, TIERS_OVER, WARD_NAMES,
     aggregate_city, aggregate_sign, aggregate_sign_volume, aggregate_ward,
     aggregate_distribution, aggregate_yoy_city, compute_prepost,
     compute_yoy_segments, days_in_month, latest_per_sign,
@@ -48,14 +48,23 @@ def _last_n_months(months: list[str], n: int) -> list[str]:
     return months[-n:]
 
 
-def latest_bins_per_sign(monthly_csv: Path, signs_meta: dict[str, dict]) -> dict[str, dict]:
-    """Return per-sign latest-month bin distribution for the detail histogram.
+def _prior_year_month(month: str) -> str:
+    """'2026-04' -> '2025-04'."""
+    y, m = int(month[:4]), int(month[5:7])
+    return f"{y-1:04d}-{m:02d}"
 
-    We re-stream the CSV (cheap; <100MB) so we don't have to keep all bins in
-    memory through the whole aggregation pipeline.
+
+def latest_bins_per_sign(monthly_csv: Path, signs_meta: dict[str, dict]) -> dict[str, dict]:
+    """Per-sign latest-month bin distribution + the prior-year same-month bins for YoY overlay.
+
+    Streams the monthly CSV once, keeping a per-(sign, month) bin record only
+    for months that turn out to be the latest or the latest-minus-one-year for
+    that sign. Memory is bounded by ~2 × #signs entries by the end.
     """
+    # Tracks: per sign -> latest month seen; per (sign, month) -> bin values.
     latest_month: dict[str, str] = {}
-    bins: dict[str, dict] = {}
+    bins_by_sm: dict[tuple[str, str], list[int]] = {}
+
     for row in iter_csv(monthly_csv):
         sid = (row.get("sign_id") or "").strip()
         if sid not in signs_meta:
@@ -63,20 +72,33 @@ def latest_bins_per_sign(monthly_csv: Path, signs_meta: dict[str, dict]) -> dict
         m = (row.get("month") or "")[:7]
         if not m:
             continue
+        values = []
+        for label in BIN_LABELS:
+            v = row.get(label)
+            try:
+                values.append(int(float(v))) if v not in (None, "", "None") else values.append(0)
+            except (TypeError, ValueError):
+                values.append(0)
+        bins_by_sm[(sid, m)] = values
         prev = latest_month.get(sid)
         if prev is None or m > prev:
             latest_month[sid] = m
-            values = []
-            for label in BIN_LABELS:
-                v = row.get(label)
-                try:
-                    values.append(int(float(v))) if v not in (None, "", "None") else values.append(0)
-                except (TypeError, ValueError):
-                    values.append(0)
-            # human-readable labels
-            human = [f"{lo}-{lo+4}" for lo in BIN_LOWERS[:-1]] + ["100+"]
-            bins[sid] = {"labels": human, "lowers": BIN_LOWERS, "values": values, "month": m}
-    return bins
+
+    human = [f"{lo}-{lo+4}" for lo in BIN_LOWERS[:-1]] + ["100+"]
+    out: dict[str, dict] = {}
+    for sid, latest in latest_month.items():
+        prior = _prior_year_month(latest)
+        values = bins_by_sm.get((sid, latest))
+        prev_values = bins_by_sm.get((sid, prior))
+        out[sid] = {
+            "labels": human,
+            "lowers": BIN_LOWERS,
+            "values": values,
+            "month": latest,
+            "prior_values": prev_values,
+            "prior_month": prior if prev_values is not None else None,
+        }
+    return out
 
 
 def build_summary(signs: dict[str, dict], rows: list[dict], ase: list[dict],
@@ -86,7 +108,10 @@ def build_summary(signs: dict[str, dict], rows: list[dict], ase: list[dict],
                   distribution: dict, mover_signs: list[dict],
                   hourly: dict | None = None,
                   yoy_city: dict | None = None,
-                  yoy_top: dict[int, list] | None = None) -> dict:
+                  yoy_top: dict[int, list] | None = None,
+                  nearest_ase: dict[str, dict] | None = None,
+                  spatial_did: dict | None = None,
+                  bin_counts: dict[str, int] | None = None) -> dict:
     latest = latest_per_sign(signs_monthly, n_months=3)
 
     # ward summary (with last-24-month sparkline series)
@@ -124,6 +149,7 @@ def build_summary(signs: dict[str, dict], rows: list[dict], ase: list[dict],
         if sid not in latest:
             continue
         st = prepost["signs"].get(sid, {})
+        near = nearest_ase.get(sid) if nearest_ase else None
         sign_list.append({
             "sign_id": sid,
             "name": s["name"],
@@ -136,6 +162,8 @@ def build_summary(signs: dict[str, dict], rows: list[dict], ase: list[dict],
             "latest": latest[sid],
             "delta_2025": st.get("delta_2025"),
             "did": st.get("did"),
+            "nearest_ase_m": (near or {}).get("distance_m"),
+            "nearest_ase_loc": (near or {}).get("ase_location"),
         })
     sign_list.sort(key=lambda x: (x["ward"], x["name"] or x["sign_id"]))
 
@@ -176,25 +204,30 @@ def build_summary(signs: dict[str, dict], rows: list[dict], ase: list[dict],
         out["yoy_top"] = yoy_top
     out["yoy_tiers"] = list(TIERS_OVER)
 
-    # Hourly profile metadata (full per-sign profile goes in data.json)
+    if spatial_did is not None:
+        # Emit bins in canonical order, including zero-sign bins as nulls.
+        labels = DISTANCE_BIN_LABELS
+        ordered = []
+        for lbl in labels:
+            entry = spatial_did.get(lbl, {})
+            ordered.append({
+                "label": lbl,
+                "n_signs": (bin_counts or {}).get(lbl, 0),
+                "pre_2025": entry.get("pre_2025"),
+                "post_2025": entry.get("post_2025"),
+                "delta_2025": entry.get("delta_2025"),
+                "pre_2024": entry.get("pre_2024"),
+                "post_2024": entry.get("post_2024"),
+                "delta_2024": entry.get("delta_2024"),
+                "did": entry.get("did"),
+            })
+        out["spatial_did"] = ordered
+
+    # Hourly profile metadata (full per-sign profile goes in data.json, used by
+    # the per-sign typical-day chart). The "unusual patterns" leaderboard was
+    # removed; only the per-sign profile remains.
     if hourly:
         out["hourly_city"] = hourly.get("city")
-        # outlier list: signs whose weekday hourly shape diverges most from city avg
-        unusual = []
-        for sid, payload in hourly.get("signs", {}).items():
-            s = signs.get(sid)
-            if not s or payload.get("total_volume", 0) < 50000:  # min volume for stable shape
-                continue
-            unusual.append({
-                "sign_id": sid,
-                "name": s["name"] or s["address"] or f"Sign {sid}",
-                "ward": s["ward"],
-                "limit": s["limit"],
-                "pattern_distance": payload["pattern_distance"],
-                "total_volume": payload["total_volume"],
-            })
-        unusual.sort(key=lambda x: x["pattern_distance"], reverse=True)
-        out["unusual_patterns"] = unusual[:15]
         out["hourly_year"] = 2023
 
     return out

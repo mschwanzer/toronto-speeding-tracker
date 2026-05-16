@@ -23,10 +23,11 @@ if str(HERE) not in sys.path:
 
 from ckan import CKANClient                       # noqa: E402
 from aggregate import (                            # noqa: E402
-    aggregate_city, aggregate_distribution, aggregate_sign, aggregate_sign_volume,
-    aggregate_ward, aggregate_yoy_city, all_months, compute_prepost,
-    compute_yoy_segments, load_ase, load_monthly, load_signs,
-    top_movers, top_yoy_increases,
+    aggregate_city, aggregate_distance, aggregate_distribution, aggregate_sign,
+    aggregate_sign_volume, aggregate_ward, aggregate_yoy_city, all_months,
+    assign_distance_bin, compute_nearest_ase, compute_prepost,
+    compute_prepost_groups, compute_yoy_segments, load_ase, load_monthly,
+    load_signs, top_movers, top_yoy_increases,
 )
 from render import build_full, build_summary, latest_bins_per_sign, render  # noqa: E402
 import hourly as _hourly                            # noqa: E402
@@ -102,6 +103,21 @@ def main(argv: list[str] | None = None) -> int:
     signs_monthly = aggregate_sign(rows)
     signs_volume = aggregate_sign_volume(rows)
 
+    log.info("computing nearest-ASE distance per sign and aggregating by distance bin")
+    nearest_ase = compute_nearest_ase(signs, ase)
+    sign_to_bin = {sid: assign_distance_bin(v["distance_m"]) for sid, v in nearest_ase.items()}
+    distance_bins = aggregate_distance(rows, sign_to_bin)
+    distance_prepost = compute_prepost_groups(distance_bins)
+    bin_counts: dict[str, int] = {}
+    for sid, b in sign_to_bin.items():
+        if b is not None:
+            bin_counts[b] = bin_counts.get(b, 0) + 1
+    dists = sorted(v["distance_m"] for v in nearest_ase.values() if v["distance_m"] is not None)
+    if dists:
+        log.info("  nearest-ASE distance: min=%.0f m  median=%.0f m  max=%.0f m  signs=%d",
+                 dists[0], dists[len(dists)//2], dists[-1], len(dists))
+        log.info("  signs per bin: %s", bin_counts)
+
     log.info("computing pre/post difference-in-differences")
     prepost = compute_prepost(city, wards, signs_monthly, signs)
     log.info("city headline: pre=%.2f post=%.2f Δ=%s DiD=%s",
@@ -139,7 +155,9 @@ def main(argv: list[str] | None = None) -> int:
     log.info("building payloads")
     summary = build_summary(signs, rows, ase, city, wards, signs_monthly,
                             prepost, months, distribution, movers, hourly_profiles,
-                            yoy_city=yoy_city, yoy_top=yoy_top)
+                            yoy_city=yoy_city, yoy_top=yoy_top,
+                            nearest_ase=nearest_ase, spatial_did=distance_prepost,
+                            bin_counts=bin_counts)
     full = build_full(signs_monthly, signs_volume, wards, months, bins,
                       hourly_profiles, yoy_per_sign=yoy_per_sign)
 

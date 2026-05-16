@@ -286,6 +286,66 @@ def aggregate_ward(rows: list[dict]) -> dict[int, dict[str, dict]]:
     return dict(_weighted_monthly(rows, key_fn=lambda r: r["ward"]))
 
 
+# ---------- spatial: distance to nearest ASE camera ----------
+
+# Bin edges in metres. Left-inclusive, right-exclusive; the final bin extends
+# to infinity. The labels are what's shown on the chart.
+DISTANCE_BINS: list[tuple[int, int | None, str]] = [
+    (0,    250,  "0–250 m"),
+    (250,  500,  "250–500 m"),
+    (500,  1000, "500 m–1 km"),
+    (1000, 2000, "1–2 km"),
+    (2000, None, ">2 km"),
+]
+DISTANCE_BIN_LABELS: list[str] = [lbl for _, _, lbl in DISTANCE_BINS]
+
+
+def haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Great-circle distance in metres between two (lat, lon) pairs."""
+    R = 6_371_000.0  # earth radius, m
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlam = math.radians(lon2 - lon1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlam / 2) ** 2
+    return 2 * R * math.asin(math.sqrt(a))
+
+
+def compute_nearest_ase(signs: dict[str, dict], ase: list[dict]) -> dict[str, dict]:
+    """For each sign, the distance + identity of the nearest ASE camera."""
+    if not ase:
+        return {sid: {"distance_m": None, "ase_location": None} for sid in signs}
+    out: dict[str, dict] = {}
+    for sid, s in signs.items():
+        best_d = float("inf")
+        best_loc = None
+        for a in ase:
+            d = haversine(s["lat"], s["lon"], a["lat"], a["lon"])
+            if d < best_d:
+                best_d = d
+                best_loc = a["location"]
+        out[sid] = {"distance_m": round(best_d, 1), "ase_location": best_loc}
+    return out
+
+
+def assign_distance_bin(distance_m: float | None) -> str | None:
+    if distance_m is None:
+        return None
+    for lo, hi, lbl in DISTANCE_BINS:
+        if hi is None or distance_m < hi:
+            if distance_m >= lo:
+                return lbl
+    return None
+
+
+def aggregate_distance(rows: list[dict], sign_to_bin: dict[str, str]) -> dict[str, dict[str, dict]]:
+    """Group monthly rows by ASE-distance bin, same shape as `aggregate_ward()`."""
+    def key(r):
+        return sign_to_bin.get(r["sign_id"])
+    grouped = _weighted_monthly((r for r in rows if key(r) is not None), key_fn=key)
+    return dict(grouped)
+
+
 def aggregate_sign(rows: list[dict]) -> dict[str, dict[str, float]]:
     """sign_id -> {month -> pct}. Per-sign monthly metric for detail charts."""
     out: dict[str, dict[str, float]] = defaultdict(dict)
@@ -542,6 +602,27 @@ def _window_mean_pcts(pcts: dict[str, float], months: tuple[str, ...]) -> float 
     if any(v is None for v in vals):
         return None
     return sum(vals) / len(vals)  # equal-weight monthly mean for a single sign
+
+
+def _prepost_for_series(series: dict[str, dict]) -> dict:
+    """Compute pre/post + DiD numbers for one monthly map (city, ward, or bin)."""
+    pre25 = _window_mean(series, PRE_2025)
+    post25 = _window_mean(series, POST_2025)
+    pre24 = _window_mean(series, PRE_2024)
+    post24 = _window_mean(series, POST_2024)
+    delta25 = (post25 - pre25) if (pre25 is not None and post25 is not None) else None
+    delta24 = (post24 - pre24) if (pre24 is not None and post24 is not None) else None
+    did = (delta25 - delta24) if (delta25 is not None and delta24 is not None) else None
+    return {
+        "pre_2025": pre25, "post_2025": post25, "delta_2025": delta25,
+        "pre_2024": pre24, "post_2024": post24, "delta_2024": delta24,
+        "did": did,
+    }
+
+
+def compute_prepost_groups(groups: dict) -> dict:
+    """DiD numbers for an arbitrary {group_key: monthly_map} dict (used for distance bins)."""
+    return {g: _prepost_for_series(series) for g, series in groups.items()}
 
 
 def compute_prepost(city: dict[str, dict], wards: dict[int, dict[str, dict]],
