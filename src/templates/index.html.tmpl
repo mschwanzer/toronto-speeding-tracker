@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Toronto Speeding Tracker — Watch Your Speed Dashboard</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --ink: #11151c;
+    --ink-soft: #4a5263;
+    --line: #e3e6ec;
+    --card: #ffffff;
+    --accent: #c0392b;
+    --accent-soft: #fde6e3;
+    --good: #2e7d4f;
+    --bad: #c0392b;
+    --neutral: #6b7280;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, system-ui, sans-serif; }
+  a { color: #1a56db; }
+  h1, h2, h3 { margin: 0 0 .25em; font-weight: 600; letter-spacing: -0.01em; }
+  h1 { font-size: 28px; }
+  h2 { font-size: 20px; margin-top: 2em; }
+  h3 { font-size: 16px; }
+
+  header.hero { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #fff; padding: 28px 32px; }
+  header.hero .wrap { max-width: 1400px; margin: 0 auto; }
+  header.hero .tag { display: inline-block; padding: 3px 10px; background: rgba(192,57,43,.2); border: 1px solid rgba(192,57,43,.6); border-radius: 999px; font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: #ffb4ab; margin-bottom: 10px; }
+  header.hero h1 { color: #fff; }
+  header.hero p { color: #a3aec3; max-width: 70ch; margin: 8px 0 0; }
+  .disclaimer-bar { background: #fef7e6; color: #6b4f00; border-bottom: 1px solid #f1d977; padding: 8px 32px; font-size: 12.5px; line-height: 1.5; }
+  .disclaimer-bar a { color: #6b4f00; text-decoration: underline; }
+  .disclaimer-bar b { color: #4d3a00; }
+
+  .wrap { max-width: 1400px; margin: 0 auto; padding: 0 32px; }
+  section { padding: 24px 0; }
+
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 18px; }
+  .kpi { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; }
+  .kpi .label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-soft); margin-bottom: 6px; }
+  .kpi .value { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; }
+  .kpi .sub { font-size: 12px; color: var(--ink-soft); margin-top: 4px; }
+  .kpi.headline { background: linear-gradient(180deg, #fff, #fff3f0); border-color: #f1cbc5; }
+  .kpi.headline .value { color: var(--accent); }
+  .pos { color: var(--bad); }
+  .neg { color: var(--good); }
+  .neutral { color: var(--neutral); }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 20px; margin-bottom: 18px; }
+  .card .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .small { font-size: 13px; color: var(--ink-soft); }
+
+  #cityChart, #cityAdtChart { width: 100%; height: 320px; }
+  #distChart { width: 100%; height: 340px; }
+  #moversChart { width: 100%; height: 520px; }
+  #wardChart { width: 100%; height: 320px; }
+  #wardAdtChart { width: 100%; height: 200px; }
+  #signChart { width: 100%; height: 280px; }
+  #signAdtChart { width: 100%; height: 180px; }
+  #signBins { width: 100%; height: 240px; }
+  #signHourChart { width: 100%; height: 240px; }
+  #signDowChart { width: 100%; height: 180px; }
+  #unusualChart { width: 100%; height: 420px; }
+  #yoyTierChart { width: 100%; height: 320px; }
+  #yoyTopChart { width: 100%; height: 540px; }
+  .yoy-tile-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  .yoy-tile { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px; }
+  .yoy-tile .tier { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-soft); }
+  .yoy-tile .this { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 4px; }
+  .yoy-tile .last { font-size: 12px; color: var(--ink-soft); }
+  .yoy-tile .pct { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  @media (max-width: 900px) { .yoy-tile-grid { grid-template-columns: repeat(2, 1fr); } }
+  .tier-filter { display: inline-flex; gap: 4px; }
+  .tier-filter button { background: #f3f5f9; border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; font: 12px/1 sans-serif; cursor: pointer; }
+  .tier-filter button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  table.yoy-table td.num { text-align: right; }
+  #map { width: 100%; height: 560px; border-radius: 8px; overflow: hidden; }
+  .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 1000px) { .chart-row { grid-template-columns: 1fr; } }
+  .mini-kpi { display: flex; gap: 18px; flex-wrap: wrap; margin: 8px 0 14px; font-size: 13px; color: var(--ink-soft); }
+  .mini-kpi b { color: var(--ink); font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  .ward-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  .ward-card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; cursor: pointer; transition: transform .08s, border-color .08s; }
+  .ward-card:hover { border-color: #c8cdd6; transform: translateY(-1px); }
+  .ward-card.active { border-color: var(--accent); background: var(--accent-soft); }
+  .ward-card .num { font-size: 11px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .06em; }
+  .ward-card .nm { font-weight: 600; font-size: 14px; margin: 2px 0 4px; }
+  .ward-card .stat { font-size: 13px; }
+  .ward-card .stat .v { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .spark { width: 100%; height: 28px; margin-top: 4px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  th { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); cursor: pointer; user-select: none; }
+  th.sorted::after { content: " \25BE"; }
+  th.sorted.asc::after { content: " \25B4"; }
+  tr.signrow { cursor: pointer; }
+  tr.signrow:hover { background: #f3f5f9; }
+  .num { font-variant-numeric: tabular-nums; text-align: right; }
+
+  .panel { display: none; }
+  .panel.open { display: block; }
+
+  footer { padding: 40px 32px; color: var(--ink-soft); font-size: 13px; border-top: 1px solid var(--line); background: #fff; margin-top: 40px; }
+  footer .wrap { padding: 0; }
+  footer h3 { color: var(--ink); margin-top: 1em; }
+  footer ul { padding-left: 18px; }
+  footer code { background: #eef0f4; padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+
+  @media (max-width: 900px) {
+    .kpis { grid-template-columns: repeat(2, 1fr); }
+    .ward-grid { grid-template-columns: repeat(2, 1fr); }
+    .wrap, header.hero { padding-left: 16px; padding-right: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="disclaimer-bar">
+  <b>Independent analysis.</b> Built from publicly-available City of Toronto data — <b>not produced, reviewed, or endorsed by the City of Toronto, Toronto Police Service, or any government body.</b> Contains information licensed under the <a href="https://open.toronto.ca/open-data-license/" target="_blank" rel="noopener">Open Government Licence – Toronto</a>. See methodology and source links at the bottom of the page; any number on this page can be verified against the linked datasets.
+</div>
+
+<header class="hero">
+  <div class="wrap">
+    <h1>Did Toronto get faster after the speed-camera ban?</h1>
+    <p>In November 2025 the Province of Ontario banned Automated Speed Enforcement cameras. This dashboard uses the City of Toronto's network of ~1,200 driver-feedback radar signs to track whether speeding actually rose — by street, by ward, month over month — with a 2024 control to filter out seasonal noise.</p>
+  </div>
+</header>
+
+<section class="wrap">
+  <div class="kpis" id="kpis"></div>
+</section>
+
+<section class="wrap">
+  <div class="card">
+    <div class="head">
+      <h2 style="margin:0">Total speeders, this year vs last year</h2>
+      <span class="small" id="yoyWindow"></span>
+    </div>
+    <p class="small" style="margin-top:0" id="yoyBlurb"></p>
+    <div class="yoy-tile-grid" id="yoyTiles"></div>
+    <div style="margin-top:18px"><div id="yoyTierChart"></div></div>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="card">
+    <div class="head">
+      <h2 style="margin:0">Streets with the largest jump in speeders</h2>
+      <span class="tier-filter" id="yoyTierFilter">
+        <button data-tier="10">10+ over</button>
+        <button data-tier="20" class="active">20+ over</button>
+        <button data-tier="30">30+ over</button>
+      </span>
+    </div>
+    <p class="small" style="margin-top:0">Top 20 by <i>absolute increase</i> in vehicles measured at the selected over-the-limit threshold (Jan–Apr 2026 vs same period 2025). For each street: last year's count, this year's count, the raw increase, and the percent change. Click any bar to open the sign's detail panel.</p>
+    <div id="yoyTopChart"></div>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="chart-row">
+    <div class="card">
+      <div class="head">
+        <h2 style="margin:0">% &gt;10 km/h over limit</h2>
+        <span class="small">Volume-weighted, all signs</span>
+      </div>
+      <div id="cityChart"></div>
+    </div>
+    <div class="card">
+      <div class="head">
+        <h2 style="margin:0">Average daily traffic</h2>
+        <span class="small">Vehicles measured per day, all signs</span>
+      </div>
+      <div class="mini-kpi" id="adtKpi"></div>
+      <div id="cityAdtChart"></div>
+    </div>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="card">
+    <div class="head">
+      <h2 style="margin:0">Speed distribution — before vs after the ASE ban</h2>
+      <span class="small">Share of vehicles in each 5 km/h speed bin · stacked windows</span>
+    </div>
+    <p class="small" style="margin-top:0">Each curve is the city-wide distribution of measured speeds during a 4-month window. A rightward shift means more drivers ended up in higher speed bins. The 2024 windows are included as a seasonal control: if the 2025 post-ban curve sits further right than the same-season 2024 curve, that's the camera-ban signature.</p>
+    <div id="distChart"></div>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="card">
+    <div class="head">
+      <h2 style="margin:0">Map · ~1,200 radar signs · ASE camera locations</h2>
+      <span class="small">Click any sign for detail. Toggle layers via the control top-right.</span>
+    </div>
+    <div id="map"></div>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="card">
+    <div class="head">
+      <h2 style="margin:0">Streets with the biggest jump in speeding</h2>
+      <span class="small">Top 20 signs by DiD-adjusted change · click to open</span>
+    </div>
+    <p class="small" style="margin-top:0">DiD-adjusted = (post-ban − pre-ban in 2025) minus the same delta in 2024, so seasonal trends cancel out. Positive bars indicate streets where speeding rose more than the seasonal pattern would predict.</p>
+    <div id="moversChart"></div>
+  </div>
+</section>
+
+<section class="wrap">
+  <h2>Browse by ward</h2>
+  <p class="small">Each card shows the ward's volume-weighted trend over the last 24 months and its DiD-adjusted change (post-ban vs pre-ban, minus the same delta in 2024). Click to expand.</p>
+  <div class="ward-grid" id="wardGrid"></div>
+
+  <div class="card panel" id="wardPanel" style="margin-top:18px">
+    <div class="head">
+      <h2 id="wardPanelTitle" style="margin:0"></h2>
+      <span class="small" id="wardPanelMeta"></span>
+    </div>
+    <div id="wardChart"></div>
+    <h3 style="margin-top:14px">Average daily traffic — this ward</h3>
+    <div id="wardAdtChart"></div>
+    <h3 style="margin-top:18px">Signs in this ward</h3>
+    <div style="overflow-x:auto">
+      <table id="wardTable">
+        <thead><tr>
+          <th data-sort="name">Location</th>
+          <th data-sort="limit" class="num">Limit</th>
+          <th data-sort="latest" class="num sorted">Latest %</th>
+          <th data-sort="delta_2025" class="num">Δ 2025</th>
+          <th data-sort="did" class="num">DiD-adj</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card panel" id="signPanel" style="margin-top:18px">
+    <div class="head">
+      <h2 id="signPanelTitle" style="margin:0"></h2>
+      <span class="small" id="signPanelMeta"></span>
+    </div>
+    <div id="signChart"></div>
+    <h3 style="margin-top:14px">Average daily traffic at this sign</h3>
+    <div id="signAdtChart"></div>
+    <h3 style="margin-top:18px">Year over year — speeders by tier <span class="small" id="signYoyWindow"></span></h3>
+    <div id="signYoyTable"></div>
+    <h3 style="margin-top:18px">Latest month — speed distribution</h3>
+    <div id="signBins"></div>
+    <h3 style="margin-top:18px">Typical day pattern <span class="small">(2023 baseline · ~vehicles per hour)</span></h3>
+    <div id="signHourChart"></div>
+    <h3 style="margin-top:14px">By day of week <span class="small">(2023 baseline)</span></h3>
+    <div id="signDowChart"></div>
+  </div>
+</section>
+
+<section class="wrap" id="unusualSection" style="display:none">
+  <div class="card">
+    <div class="head">
+      <h2 style="margin:0">Signs with unusual time-of-day patterns</h2>
+      <span class="small">2023 baseline · click to inspect</span>
+    </div>
+    <p class="small" style="margin-top:0">Each sign's weekday hour-of-day shape is compared to the city-wide average shape. Larger bars = pattern further from the typical commuter profile (e.g. signs near schools with sharp peak-hour bumps, or arterials with prolonged plateaus). Useful for finding streets whose volume pattern shifted post-pandemic, near event venues, or in neighbourhoods with back-to-office changes.</p>
+    <div id="unusualChart"></div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <h3>About this analysis</h3>
+    <p>This dashboard is an <b>independent analysis</b> built from publicly-available open data. It is <b>not produced, reviewed, validated, or endorsed by the City of Toronto, Toronto Police Service, the Province of Ontario, or any government body or agency</b>.</p>
+    <p><b>Provided strictly as-is.</b> No warranty, no guarantee of accuracy or completeness, no representation that the analysis is fit for any particular purpose, and no liability for any use made of it. Nothing on this page is professional, legal, traffic-engineering, or policy advice. The author takes no responsibility for downstream interpretation, citation, or republication, and accepts no obligation to respond to issues, correct errors, or maintain the page.</p>
+    <p>All numbers on this page are derived deterministically from the source datasets linked below. Any reader can reproduce them by downloading the same files and applying the methodology described here. <b>Construction of the page and its analysis code was AI-assisted</b>; the data and the math are public and verifiable independently of the author or the tooling.</p>
+    <p>No causal claim is made about <i>why</i> measured speeds changed. The difference-in-differences method controls for prior-year seasonality but cannot rule out other simultaneous factors (weather variation, road construction, fleet composition, post-pandemic travel patterns, demographic shifts, etc.).</p>
+    <p><b>About the data's coverage:</b> the radar logs measurements 24 hours a day, 7 days a week — including overnight and weekends. The "Weekdays from 7 AM – 9 PM" schedule listed on almost every sign refers to when the LED <i>displays</i> your speed back to drivers (the visible feedback period), not when the underlying speed counts are collected. This was verified by cross-checking the City's hourly-archive dataset against the monthly summary: the monthly volume per sign matches the sum of all 24-hour, 7-day-a-week hourly readings to within ~1%. That said, the WYS signs are placed in safety zones and on streets the City has flagged for feedback — they are <i>not</i> a uniform random sample of all Toronto streets, and city-level totals should be read as "speeding on streets with WYS signs," not "speeding on every road in Toronto."</p>
+
+    <h3>How the numbers are computed</h3>
+    <ul>
+      <li><b>"% &gt;10 km/h over the limit"</b>. For each monthly sign reading we sum vehicles in every 5&nbsp;km/h bin whose lower boundary is ≥ <code>posted_limit + 10</code> (e.g. for a 40 km/h zone, bins <code>spd_50</code> and above), then divide by total volume. Consistent across all signs.</li>
+      <li><b>Year-over-year tier counts</b> ("Total speeders" card). Same per-row bin rule, applied for each tier (10+, 15+, 20+, 25+, 30+ over). City totals include only the <i>733 signs that reported in both Jan-Apr&nbsp;2025 and Jan-Apr&nbsp;2026</i>, so the comparison is apples-to-apples.</li>
+      <li><b>Aggregation</b>: city and ward series are <i>volume-weighted</i> means across signs (a high-traffic arterial counts more than a quiet street). Per-sign series are direct monthly readings.</li>
+      <li><b>Difference-in-differences (DiD)</b>: the post-ban window (Dec&nbsp;2025–Mar&nbsp;2026) minus the pre-ban window (Jul–Oct&nbsp;2025) — and the same delta in 2024 as a seasonal control — subtracted. <b>The DiD number is the honest headline</b>: it filters out year-over-year seasonality (winter weather, school sessions, etc.).</li>
+      <li><b>Sign relocation</b>: <code>sign_id</code> is intended to be stable, but a sign can occasionally be reassigned. Per-sign deltas on the most extreme outliers warrant a sanity-check against the address.</li>
+      <li><b>ASE camera dataset</b> records current status only — Toronto does not publish install/removal dates. The Province's November&nbsp;2025 ban removed automated enforcement city-wide, not just at the points shown on the map.</li>
+      <li><b>Hourly profiles</b> are a 2023 baseline. Toronto stopped publishing the detailed hourly archive after 2023, so the "typical day" charts cannot be updated to the post-ban era — they show each sign's pre-ban traffic pattern of life.</li>
+    </ul>
+
+    <h3>Verify any number on this page — direct dataset links</h3>
+    <ul>
+      <li>Stationary WYS Monthly Summary &mdash; <a href="https://open.toronto.ca/dataset/safety-zone-watch-your-speed-program-monthly-summary/" target="_blank" rel="noopener">dataset</a> · <a href="https://ckan0.cf.opendata.inter.prod-toronto.ca/dataset/safety-zone-watch-your-speed-program-monthly-summary/resource/d098752f-8fa5-4c83-8ea3-6f9d29afdea9/download/wys-stationary-monthly-summary.csv" target="_blank" rel="noopener">CSV</a></li>
+      <li>WYS Sign Locations &mdash; <a href="https://open.toronto.ca/dataset/school-safety-zone-watch-your-speed-program-locations/" target="_blank" rel="noopener">dataset</a> (GeoJSON / CSV options)</li>
+      <li>Automated Speed Enforcement Locations &mdash; <a href="https://open.toronto.ca/dataset/automated-speed-enforcement-locations/" target="_blank" rel="noopener">dataset</a></li>
+      <li>Detailed (hourly) Counts 2017–2023 &mdash; <a href="https://open.toronto.ca/dataset/school-safety-zone-watch-your-speed-program-detailed-speed-counts/" target="_blank" rel="noopener">dataset</a></li>
+    </ul>
+
+    <p class="small">Contains information licensed under the <a href="https://open.toronto.ca/open-data-license/" target="_blank" rel="noopener">Open Government Licence – Toronto</a>. Source datasets © City of Toronto. Page generated <span id="refreshedAt"></span>.</p>
+  </div>
+</footer>
+
+<script>window.WYS_SUMMARY = {{SUMMARY_JSON}};</script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="https://unpkg.com/echarts@5.5.1/dist/echarts.min.js"></script>
+<script>
+(function () {
+  const S = window.WYS_SUMMARY;
+  let FULL = null; // lazy loaded data.json
+
+  // ---------- formatters ----------
+  const fmt = {
+    pct: (v, dp=1) => v == null ? "—" : v.toFixed(dp) + "%",
+    pp:  (v, dp=2) => v == null ? "—" : (v >= 0 ? "+" : "") + v.toFixed(dp) + " pp",
+    int: v => v == null ? "—" : Math.round(v).toLocaleString(),
+    intPct: (v, dp=1) => v == null ? "—" : (v >= 0 ? "+" : "") + v.toFixed(dp) + "%",
+  };
+  const colorFor = (v, lo=2, hi=18) => {
+    if (v == null) return "#9aa0a6";
+    const t = Math.max(0, Math.min(1, (v - lo) / (hi - lo)));
+    const r = Math.round(46 + (192 - 46) * t);
+    const g = Math.round(125 + (57 - 125) * t);
+    const b = Math.round(79 + (43 - 79) * t);
+    return `rgb(${r},${g},${b})`;
+  };
+
+  // ---------- KPI tiles ----------
+  function renderKPIs() {
+    const k = S.headline;
+    const did = k.did;
+    const sign = did == null ? "neutral" : (did > 0 ? "pos" : "neg");
+    const arrow = did == null ? "" : (did > 0 ? "▲" : "▼");
+    const html = `
+      <div class="kpi"><div class="label">Pre-ban (Jul–Oct 2025)</div>
+        <div class="value">${fmt.pct(k.pre_2025)}</div>
+        <div class="sub">avg % &gt;10 over limit</div></div>
+      <div class="kpi"><div class="label">Post-ban (Dec 2025–Mar 2026)</div>
+        <div class="value">${fmt.pct(k.post_2025)}</div>
+        <div class="sub">avg % &gt;10 over limit</div></div>
+      <div class="kpi"><div class="label">Raw change</div>
+        <div class="value ${k.delta_2025 == null ? 'neutral' : (k.delta_2025 > 0 ? 'pos' : 'neg')}">${fmt.pp(k.delta_2025)}</div>
+        <div class="sub">post − pre, 2025</div></div>
+      <div class="kpi headline"><div class="label">DiD-adjusted change</div>
+        <div class="value ${sign}">${arrow} ${fmt.pp(did)}</div>
+        <div class="sub">post − pre, minus same delta in 2024</div></div>`;
+    document.getElementById("kpis").innerHTML = html;
+    document.getElementById("refreshedAt").textContent = S.generated_at;
+  }
+
+  // ---------- year-over-year tier comparison ----------
+  function renderYoY() {
+    if (!S.yoy_city) return;
+    const y = S.yoy_city;
+    const tiers = S.yoy_tiers || [10, 15, 20, 25, 30];
+    const win = `${y.current_window[0]}–${y.current_window[y.current_window.length-1]} vs ${y.prior_window[0]}–${y.prior_window[y.prior_window.length-1]}`;
+    document.getElementById("yoyWindow").textContent = `Jan–Apr 2026 vs Jan–Apr 2025 · ${y.n_signs.toLocaleString()} signs reporting in both windows`;
+    const t10 = y.tiers["10"] || y.tiers[10];
+    document.getElementById("yoyBlurb").innerHTML =
+      `Across all signs reporting in both windows, <b>${t10.this.toLocaleString()}</b> vehicles were measured at 10+ km/h over the limit this year, vs <b>${t10.last.toLocaleString()}</b> in the same window last year — an extra <b class="${t10.delta > 0 ? 'pos' : 'neg'}">${t10.delta >= 0 ? "+" : ""}${t10.delta.toLocaleString()}</b> speeders (<b class="${t10.pct_change > 0 ? 'pos' : 'neg'}">${t10.pct_change >= 0 ? "+" : ""}${t10.pct_change.toFixed(1)}%</b>).`;
+
+    // Tiles
+    const tilesEl = document.getElementById("yoyTiles");
+    tilesEl.innerHTML = tiers.map(t => {
+      const r = y.tiers[String(t)] || y.tiers[t];
+      const cls = r.pct_change == null ? "neutral" : (r.pct_change > 0 ? "pos" : "neg");
+      const arrow = r.pct_change == null ? "" : (r.pct_change > 0 ? "▲" : "▼");
+      return `<div class="yoy-tile">
+        <div class="tier">${t}+ km/h over limit</div>
+        <div class="this">${r.this.toLocaleString()}</div>
+        <div class="last">last yr: ${r.last.toLocaleString()}</div>
+        <div class="pct ${cls}">${arrow} ${r.pct_change >= 0 ? "+" : ""}${r.pct_change.toFixed(1)}% &nbsp; (${r.delta >= 0 ? "+" : ""}${r.delta.toLocaleString()})</div>
+      </div>`;
+    }).join("");
+
+    // Grouped bar chart
+    const chart = echarts.init(document.getElementById("yoyTierChart"), null, { renderer: "canvas" });
+    const lastVals = tiers.map(t => (y.tiers[String(t)] || y.tiers[t]).last);
+    const thisVals = tiers.map(t => (y.tiers[String(t)] || y.tiers[t]).this);
+    chart.setOption({
+      grid: { left: 70, right: 24, top: 36, bottom: 30 },
+      legend: { top: 0, textStyle: { fontSize: 12 } },
+      tooltip: { trigger: "axis", valueFormatter: v => v == null ? "—" : Number(v).toLocaleString() + " vehicles" },
+      xAxis: { type: "category", data: tiers.map(t => `${t}+ km/h over`), axisLabel: { fontSize: 12 } },
+      yAxis: { type: "value", axisLabel: { formatter: v => v >= 1e6 ? (v/1e6).toFixed(1) + "M" : v >= 1000 ? (v/1000).toFixed(0) + "k" : v } },
+      series: [
+        { name: "Last year (Jan–Apr 2025)", type: "bar", data: lastVals, itemStyle: { color: "#94a3b8", borderRadius: [2,2,0,0] } },
+        {
+          name: "This year (Jan–Apr 2026)", type: "bar", data: thisVals, itemStyle: { color: "#c0392b", borderRadius: [2,2,0,0] },
+          label: {
+            show: true, position: "top", fontSize: 11, color: "#0f172a",
+            formatter: p => {
+              const r = y.tiers[String(tiers[p.dataIndex])] || y.tiers[tiers[p.dataIndex]];
+              return (r.pct_change >= 0 ? "+" : "") + r.pct_change.toFixed(1) + "%";
+            },
+          },
+        },
+      ],
+    });
+    window.addEventListener("resize", () => chart.resize());
+  }
+
+  function renderYoYTop(tier) {
+    if (!S.yoy_top) return;
+    tier = tier || 20;
+    const data = (S.yoy_top[String(tier)] || S.yoy_top[tier] || []).slice().reverse();
+    let chart = window._yoyTopChart;
+    if (!chart) {
+      chart = echarts.init(document.getElementById("yoyTopChart"), null, { renderer: "canvas" });
+      window._yoyTopChart = chart;
+      window.addEventListener("resize", () => chart.resize());
+      chart.on("click", p => {
+        const it = (S.yoy_top[String(window._yoyTopActiveTier)] || S.yoy_top[window._yoyTopActiveTier] || []).slice().reverse()[p.dataIndex];
+        if (it) openSign(it.sign_id);
+      });
+    }
+    window._yoyTopActiveTier = tier;
+    chart.setOption({
+      grid: { left: 260, right: 120, top: 16, bottom: 30 },
+      tooltip: {
+        trigger: "axis", axisPointer: { type: "shadow" },
+        formatter: p => {
+          const it = data[p[0].dataIndex];
+          return `<b>${it.name}</b><br>Ward ${it.ward} · limit ${it.limit} km/h<br>Last year (Jan–Apr 2025): <b>${it.last.toLocaleString()}</b><br>This year (Jan–Apr 2026): <b>${it.this.toLocaleString()}</b><br>Δ: <b>${it.delta >= 0 ? "+" : ""}${it.delta.toLocaleString()}</b> (<b>${it.pct >= 0 ? "+" : ""}${it.pct.toFixed(1)}%</b>)<br>Vehicles this yr: ${it.this_vol.toLocaleString()}<br><i>Click to open</i>`;
+        },
+      },
+      xAxis: { type: "value", name: "Extra " + tier + "+ km/h-over speeders vs last year", nameLocation: "middle", nameGap: 22, axisLabel: { formatter: v => v >= 1000 ? (v/1000).toFixed(0) + "k" : v } },
+      yAxis: { type: "category", data: data.map(x => x.name.length > 36 ? x.name.slice(0, 34) + "…" : x.name), axisLabel: { fontSize: 12 } },
+      series: [{
+        type: "bar",
+        data: data.map(x => ({ value: x.delta, itemStyle: { color: "#c0392b", borderRadius: [0,2,2,0] } })),
+        label: {
+          show: true, position: "right", fontSize: 11, color: "#0f172a",
+          formatter: p => {
+            const it = data[p.dataIndex];
+            return `+${it.delta.toLocaleString()}  (${it.pct >= 0 ? "+" : ""}${it.pct.toFixed(0)}%)`;
+          },
+        },
+      }],
+    });
+  }
+
+  document.addEventListener("click", e => {
+    const b = e.target.closest("#yoyTierFilter button");
+    if (!b) return;
+    document.querySelectorAll("#yoyTierFilter button").forEach(x => x.classList.toggle("active", x === b));
+    renderYoYTop(parseInt(b.dataset.tier, 10));
+  });
+
+  // ---------- city charts (speeding + ADT) ----------
+  function timeChart(elId, data, color, fmtTip, type) {
+    type = type || "line";
+    const chart = echarts.init(document.getElementById(elId), null, { renderer: "canvas" });
+    const isBar = type === "bar";
+    const seriesBase = {
+      type, data,
+      markLine: {
+        symbol: "none", silent: true,
+        lineStyle: { color: "#0f172a", type: "dashed", width: 1 },
+        label: { formatter: "ASE ban", position: "insideStartTop", color: "#0f172a", fontSize: 11 },
+        data: [{ xAxis: "2025-11-01" }],
+      },
+      markArea: {
+        silent: true,
+        itemStyle: { color: "rgba(15,23,42,.05)" },
+        data: [
+          [{ xAxis: "2025-07-01" }, { xAxis: "2025-10-31" }],
+          [{ xAxis: "2025-12-01" }, { xAxis: "2026-03-31" }],
+        ],
+      },
+    };
+    const series = isBar
+      ? { ...seriesBase, itemStyle: { color, borderRadius: [2, 2, 0, 0] }, barCategoryGap: "15%" }
+      : { ...seriesBase, smooth: true, symbol: "none",
+          lineStyle: { width: 2, color },
+          areaStyle: { color: color.replace("rgb", "rgba").replace(")", ",0.08)") } };
+    chart.setOption({
+      grid: { left: 60, right: 24, top: 24, bottom: 56 },
+      tooltip: { trigger: "axis", valueFormatter: fmtTip },
+      xAxis: { type: "time", boundaryGap: isBar },
+      yAxis: { type: "value", scale: true, splitLine: { lineStyle: { color: "#eef0f4" } } },
+      series: [series],
+      dataZoom: [
+        { type: "inside", start: 50, end: 100 },
+        { type: "slider", height: 20, bottom: 16, start: 50, end: 100 },
+      ],
+    });
+    window.addEventListener("resize", () => chart.resize());
+    return chart;
+  }
+
+  function renderCityChart() {
+    timeChart("cityChart", S.city_series, "rgb(192,57,43)",
+              v => v == null ? "—" : v.toFixed(2) + "%");
+    timeChart("cityAdtChart", S.city_adt_series, "rgb(26,86,219)",
+              v => v == null ? "—" : Number(v).toLocaleString() + " vehicles/day", "bar");
+
+    // ADT KPIs
+    const a = S.adt_headline;
+    document.getElementById("adtKpi").innerHTML = `
+      <span>Pre-ban (Jul–Oct 2025): <b>${fmt.int(a.pre_2025)}</b></span>
+      <span>Post-ban (Dec 2025–Mar 2026): <b>${fmt.int(a.post_2025)}</b></span>
+      <span>Change: <b class="${a.delta_pct_2025 == null ? 'neutral' : (a.delta_pct_2025 > 0 ? 'pos' : 'neg')}">${fmt.intPct(a.delta_pct_2025)}</b></span>
+      <span>2024 same-window change (control): <b>${fmt.intPct(a.delta_pct_2024)}</b></span>`;
+  }
+
+  // ---------- speed distribution overlay ----------
+  function renderDistribution() {
+    const d = S.distribution;
+    const chart = echarts.init(document.getElementById("distChart"), null, { renderer: "canvas" });
+    chart.setOption({
+      grid: { left: 50, right: 20, top: 40, bottom: 50 },
+      legend: { top: 0, textStyle: { fontSize: 12 } },
+      tooltip: {
+        trigger: "axis",
+        valueFormatter: v => v == null ? "—" : Number(v).toFixed(2) + "%",
+      },
+      xAxis: {
+        type: "category",
+        data: d.labels,
+        name: "Measured speed (km/h)",
+        nameLocation: "middle", nameGap: 28,
+        axisLabel: { interval: 1, fontSize: 10 },
+      },
+      yAxis: {
+        type: "value",
+        name: "% of all measurements",
+        nameLocation: "middle", nameGap: 38,
+        axisLabel: { formatter: "{value}%" },
+      },
+      series: [
+        { name: "2024 pre  (Jul–Oct)",  type: "line", smooth: true, symbol: "none", lineStyle: { color: "#94a3b8", width: 1.5, type: "dotted" }, data: d.pre_2024_pct },
+        { name: "2024 post (Dec–Mar)", type: "line", smooth: true, symbol: "none", lineStyle: { color: "#475569", width: 1.5, type: "dotted" }, data: d.post_2024_pct },
+        { name: "2025 pre  (Jul–Oct)",  type: "line", smooth: true, symbol: "none", lineStyle: { color: "#1a56db", width: 2 }, areaStyle: { color: "rgba(26,86,219,.06)" }, data: d.pre_2025_pct },
+        { name: "2025 post (Dec–Mar)", type: "line", smooth: true, symbol: "none", lineStyle: { color: "#c0392b", width: 2.5 }, areaStyle: { color: "rgba(192,57,43,.12)" }, data: d.post_2025_pct },
+      ],
+    });
+    window.addEventListener("resize", () => chart.resize());
+  }
+
+  // ---------- top movers ----------
+  function renderMovers() {
+    const m = S.top_movers.slice().reverse(); // ECharts horizontal bar wants ascending for top-to-bottom
+    const chart = echarts.init(document.getElementById("moversChart"), null, { renderer: "canvas" });
+    chart.setOption({
+      grid: { left: 280, right: 60, top: 16, bottom: 24 },
+      tooltip: {
+        trigger: "axis", axisPointer: { type: "shadow" },
+        formatter: p => {
+          const it = m[p[0].dataIndex];
+          return `<b>${it.name}</b><br>Ward ${it.ward} ${it.ward_name}<br>Limit ${it.limit} km/h<br>Pre: ${fmt.pct(it.pre_2025)} → Post: ${fmt.pct(it.post_2025)}<br>DiD-adj: <b>${fmt.pp(it.did)}</b>`;
+        },
+      },
+      xAxis: { type: "value", axisLabel: { formatter: v => (v >= 0 ? "+" : "") + v.toFixed(0) + " pp" } },
+      yAxis: {
+        type: "category",
+        data: m.map(x => x.name.length > 38 ? x.name.slice(0, 36) + "…" : x.name),
+        axisLabel: { fontSize: 12 },
+      },
+      series: [{
+        type: "bar",
+        data: m.map(x => ({
+          value: x.did,
+          itemStyle: { color: x.did > 0 ? "#c0392b" : "#2e7d4f" },
+        })),
+        label: { show: true, position: "right", formatter: p => fmt.pp(p.value), fontSize: 11 },
+      }],
+    });
+    chart.on("click", p => {
+      const it = m[p.dataIndex];
+      if (it) openSign(it.sign_id);
+    });
+    window.addEventListener("resize", () => chart.resize());
+  }
+
+  // ---------- map ----------
+  function renderMap() {
+    const map = L.map("map", { preferCanvas: true }).setView([43.7, -79.4], 11);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "© OpenStreetMap",
+    }).addTo(map);
+
+    const wysCluster = L.markerClusterGroup({ maxClusterRadius: 50, disableClusteringAtZoom: 14 });
+    S.signs.forEach(s => {
+      const m = L.circleMarker([s.lat, s.lon], {
+        radius: 6, weight: 1, color: "#1f2937",
+        fillColor: colorFor(s.latest), fillOpacity: 0.9,
+      });
+      const did = s.did == null ? "" : ` · DiD ${fmt.pp(s.did)}`;
+      m.bindPopup(`<b>${s.name || "Sign " + s.sign_id}</b><br>${s.address || ""}<br>Limit ${s.limit} · Latest ${fmt.pct(s.latest)}${did}<br><a href="#" data-open-sign="${s.sign_id}">Open detail ▸</a>`);
+      m.on("popupopen", e => {
+        const link = e.popup._contentNode.querySelector("[data-open-sign]");
+        if (link) link.addEventListener("click", ev => { ev.preventDefault(); openSign(s.sign_id); });
+      });
+      wysCluster.addLayer(m);
+    });
+    map.addLayer(wysCluster);
+
+    const aseLayer = L.layerGroup();
+    S.ase.forEach(a => {
+      const icon = L.divIcon({
+        className: "ase-icon",
+        html: `<div style="width:18px;height:18px;border-radius:3px;background:#0f172a;color:#fff;text-align:center;font:bold 11px/18px sans-serif;border:1px solid #fff;box-shadow:0 0 0 1px #0f172a">A</div>`,
+        iconSize: [18, 18], iconAnchor: [9, 9],
+      });
+      const m = L.marker([a.lat, a.lon], { icon, title: a.location });
+      m.bindPopup(`<b>ASE camera</b><br>${a.location}<br><i>Status:</i> ${a.status}<br>${a.ward_label || ""}`);
+      aseLayer.addLayer(m);
+    });
+
+    L.control.layers(null, {
+      "Watch Your Speed signs": wysCluster,
+      "ASE camera locations": aseLayer,
+    }, { collapsed: false }).addTo(map);
+
+    // Legend
+    const legend = L.control({ position: "bottomleft" });
+    legend.onAdd = () => {
+      const div = L.DomUtil.create("div", "");
+      div.style.cssText = "background:#fff;padding:8px 10px;border:1px solid #e3e6ec;border-radius:6px;font:12px/1.3 sans-serif";
+      div.innerHTML = `<b>Latest % &gt;10 over</b><br>
+        <span style="display:inline-block;width:12px;height:12px;background:${colorFor(2)};border-radius:50%;border:1px solid #1f2937;vertical-align:middle"></span> ≤2%
+        <span style="display:inline-block;width:12px;height:12px;background:${colorFor(10)};border-radius:50%;border:1px solid #1f2937;margin-left:8px;vertical-align:middle"></span> ~10%
+        <span style="display:inline-block;width:12px;height:12px;background:${colorFor(18)};border-radius:50%;border:1px solid #1f2937;margin-left:8px;vertical-align:middle"></span> ≥18%`;
+      return div;
+    };
+    legend.addTo(map);
+
+    setTimeout(() => map.invalidateSize(), 100);
+  }
+
+  // ---------- ward grid + panel ----------
+  let wardChart = null;
+  let wardAdtChart = null;
+  let activeWard = null;
+
+  function renderWardGrid() {
+    const grid = document.getElementById("wardGrid");
+    grid.innerHTML = "";
+    S.ward_summary.forEach(w => {
+      const card = document.createElement("div");
+      card.className = "ward-card";
+      card.dataset.ward = w.ward;
+      const did = w.did;
+      const cls = did == null ? "neutral" : (did > 0 ? "pos" : "neg");
+      const arrow = did == null ? "" : (did > 0 ? "▲" : "▼");
+      card.innerHTML = `
+        <div class="num">Ward ${w.ward} · ${w.n_signs} signs</div>
+        <div class="nm">${w.name}</div>
+        <div class="stat">Latest <span class="v">${fmt.pct(w.latest)}</span></div>
+        <div class="stat">DiD-adj <span class="v ${cls}">${arrow} ${fmt.pp(did)}</span></div>
+        <div class="spark" data-spark="${w.ward}"></div>`;
+      card.addEventListener("click", () => openWard(w.ward));
+      grid.appendChild(card);
+    });
+    // sparklines
+    S.ward_summary.forEach(w => {
+      const el = grid.querySelector(`[data-spark="${w.ward}"]`);
+      if (!el || !w.series24) return;
+      const chart = echarts.init(el, null, { renderer: "canvas" });
+      chart.setOption({
+        grid: { left: 0, right: 0, top: 2, bottom: 2 },
+        xAxis: { type: "time", show: false, boundaryGap: false },
+        yAxis: { type: "value", show: false, scale: true },
+        series: [{ type: "line", smooth: true, symbol: "none", data: w.series24, lineStyle: { width: 1.5, color: "#c0392b" }, areaStyle: { color: "rgba(192,57,43,.12)" } }],
+      });
+    });
+  }
+
+  async function ensureFull() {
+    if (FULL) return FULL;
+    const r = await fetch("./data.json");
+    FULL = await r.json();
+    return FULL;
+  }
+
+  async function openWard(ward) {
+    activeWard = ward;
+    document.querySelectorAll(".ward-card").forEach(c => c.classList.toggle("active", String(c.dataset.ward) === String(ward)));
+    const panel = document.getElementById("wardPanel");
+    panel.classList.add("open");
+    const w = S.ward_summary.find(x => x.ward === ward);
+    document.getElementById("wardPanelTitle").textContent = `Ward ${ward} — ${w.name}`;
+    document.getElementById("wardPanelMeta").textContent = `${w.n_signs} signs · DiD-adjusted ${fmt.pp(w.did)}`;
+    panel.scrollIntoView({ behavior: "smooth", block: "start" });
+
+    const data = await ensureFull();
+    const series = data.ward_monthly[ward] || [];
+    const adtSeries = data.ward_adt[ward] || [];
+    if (!wardChart) wardChart = echarts.init(document.getElementById("wardChart"), null, { renderer: "canvas" });
+    wardChart.setOption({
+      grid: { left: 60, right: 24, top: 24, bottom: 50 },
+      tooltip: { trigger: "axis", valueFormatter: v => v == null ? "—" : v.toFixed(2) + "%" },
+      xAxis: { type: "time", boundaryGap: false },
+      yAxis: { type: "value", scale: true, axisLabel: { formatter: "{value}%" } },
+      series: [{
+        type: "line", smooth: true, symbol: "none", data: series,
+        lineStyle: { width: 2, color: "#c0392b" },
+        areaStyle: { color: "rgba(192,57,43,.08)" },
+        markLine: { symbol: "none", silent: true, lineStyle: { color: "#0f172a", type: "dashed" }, data: [{ xAxis: "2025-11-01" }] },
+        markArea: { silent: true, itemStyle: { color: "rgba(15,23,42,.05)" }, data: [
+          [{ xAxis: "2025-07-01" }, { xAxis: "2025-10-31" }],
+          [{ xAxis: "2025-12-01" }, { xAxis: "2026-03-31" }],
+        ]},
+      }],
+      dataZoom: [{ type: "inside" }, { type: "slider", height: 18, bottom: 14 }],
+    });
+
+    if (!wardAdtChart) wardAdtChart = echarts.init(document.getElementById("wardAdtChart"), null, { renderer: "canvas" });
+    wardAdtChart.setOption({
+      grid: { left: 60, right: 24, top: 16, bottom: 30 },
+      tooltip: { trigger: "axis", valueFormatter: v => v == null ? "—" : Number(v).toLocaleString() + " vehicles/day" },
+      xAxis: { type: "time", boundaryGap: true },
+      yAxis: { type: "value", scale: true, axisLabel: { formatter: v => v >= 1000 ? (v/1000).toFixed(0) + "k" : v } },
+      series: [{
+        type: "bar", data: adtSeries,
+        itemStyle: { color: "#1a56db", borderRadius: [2, 2, 0, 0] },
+        barCategoryGap: "15%",
+        markLine: { symbol: "none", silent: true, lineStyle: { color: "#0f172a", type: "dashed" }, data: [{ xAxis: "2025-11-01" }] },
+      }],
+    });
+
+    renderWardTable(ward);
+  }
+
+  function renderWardTable(ward, sortKey="latest", asc=false) {
+    const tbody = document.querySelector("#wardTable tbody");
+    const signs = S.signs.filter(s => s.ward === ward);
+    signs.sort((a, b) => {
+      let va = a[sortKey], vb = b[sortKey];
+      if (va == null) va = -Infinity; if (vb == null) vb = -Infinity;
+      if (typeof va === "string") return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+      return asc ? va - vb : vb - va;
+    });
+    tbody.innerHTML = signs.map(s => `
+      <tr class="signrow" data-sign="${s.sign_id}">
+        <td>${s.name || s.address || ("Sign " + s.sign_id)}</td>
+        <td class="num">${s.limit}</td>
+        <td class="num">${fmt.pct(s.latest)}</td>
+        <td class="num ${s.delta_2025 == null ? "neutral" : (s.delta_2025 > 0 ? "pos" : "neg")}">${fmt.pp(s.delta_2025)}</td>
+        <td class="num ${s.did == null ? "neutral" : (s.did > 0 ? "pos" : "neg")}">${fmt.pp(s.did)}</td>
+      </tr>`).join("");
+    tbody.querySelectorAll("tr").forEach(tr => tr.addEventListener("click", () => openSign(tr.dataset.sign)));
+    document.querySelectorAll("#wardTable th").forEach(th => {
+      th.classList.remove("sorted", "asc");
+      if (th.dataset.sort === sortKey) {
+        th.classList.add("sorted");
+        if (asc) th.classList.add("asc");
+      }
+    });
+  }
+
+  document.addEventListener("click", e => {
+    const th = e.target.closest("#wardTable th[data-sort]");
+    if (th && activeWard != null) {
+      const cur = th.classList.contains("sorted");
+      const asc = cur && !th.classList.contains("asc");
+      renderWardTable(activeWard, th.dataset.sort, asc);
+    }
+  });
+
+  // ---------- sign panel ----------
+  let signChart = null;
+  let signAdtChart = null;
+  let signBinsChart = null;
+  let signHourChart = null;
+  let signDowChart = null;
+  async function openSign(sid) {
+    const sign = S.signs.find(s => String(s.sign_id) === String(sid));
+    if (!sign) return;
+    const panel = document.getElementById("signPanel");
+    panel.classList.add("open");
+    document.getElementById("signPanelTitle").textContent = sign.name || sign.address || ("Sign " + sid);
+    document.getElementById("signPanelMeta").textContent = `Ward ${sign.ward} · ${sign.address || ""} · Limit ${sign.limit} km/h`;
+    panel.scrollIntoView({ behavior: "smooth", block: "start" });
+
+    const data = await ensureFull();
+    const months = data.signs_monthly[sid] || {};
+    const pairs = Object.entries(months).sort();
+    if (!signChart) signChart = echarts.init(document.getElementById("signChart"), null, { renderer: "canvas" });
+    signChart.setOption({
+      grid: { left: 60, right: 24, top: 24, bottom: 50 },
+      tooltip: { trigger: "axis", valueFormatter: v => v == null ? "—" : v.toFixed(2) + "%" },
+      xAxis: { type: "time", boundaryGap: false },
+      yAxis: { type: "value", scale: true, axisLabel: { formatter: "{value}%" } },
+      series: [{
+        type: "line", smooth: true, symbol: "circle", symbolSize: 4,
+        data: pairs.map(([m, v]) => [m + "-01", v]),
+        lineStyle: { width: 2, color: "#c0392b" },
+        markLine: { symbol: "none", silent: true, lineStyle: { color: "#0f172a", type: "dashed" }, data: [{ xAxis: "2025-11-01" }] },
+        markArea: { silent: true, itemStyle: { color: "rgba(15,23,42,.05)" }, data: [
+          [{ xAxis: "2025-07-01" }, { xAxis: "2025-10-31" }],
+          [{ xAxis: "2025-12-01" }, { xAxis: "2026-03-31" }],
+        ]},
+      }],
+      dataZoom: [{ type: "inside" }, { type: "slider", height: 18, bottom: 14 }],
+    });
+
+    // ADT for this sign
+    const adt = data.signs_adt[sid] || {};
+    const adtPairs = Object.entries(adt).sort();
+    if (!signAdtChart) signAdtChart = echarts.init(document.getElementById("signAdtChart"), null, { renderer: "canvas" });
+    signAdtChart.setOption({
+      grid: { left: 60, right: 24, top: 12, bottom: 26 },
+      tooltip: { trigger: "axis", valueFormatter: v => v == null ? "—" : Number(v).toLocaleString() + " vehicles/day" },
+      xAxis: { type: "time", boundaryGap: true },
+      yAxis: { type: "value", scale: true, axisLabel: { formatter: v => v >= 1000 ? (v/1000).toFixed(0) + "k" : v } },
+      series: [{
+        type: "bar",
+        data: adtPairs.map(([m, v]) => [m + "-01", Math.round(v)]),
+        itemStyle: { color: "#1a56db", borderRadius: [2, 2, 0, 0] },
+        barCategoryGap: "15%",
+        markLine: { symbol: "none", silent: true, lineStyle: { color: "#0f172a", type: "dashed" }, data: [{ xAxis: "2025-11-01" }] },
+      }],
+    });
+
+    // per-sign YoY tier table
+    const yoy = data.yoy_signs && data.yoy_signs[sid];
+    const tableEl = document.getElementById("signYoyTable");
+    const winEl = document.getElementById("signYoyWindow");
+    if (yoy) {
+      const tiers = S.yoy_tiers || [10, 15, 20, 25, 30];
+      winEl.textContent = `(${yoy.this_months} mo this yr / ${yoy.last_months} mo last yr · Jan–Apr 2026 vs 2025)`;
+      let rows = `<table class="yoy-table" style="width:100%;font-size:13px">
+        <thead><tr>
+          <th>km/h over limit</th>
+          <th class="num">Last year</th>
+          <th class="num">This year</th>
+          <th class="num">Δ count</th>
+          <th class="num">Δ %</th>
+        </tr></thead><tbody>`;
+      tiers.forEach(t => {
+        const last = yoy.last[String(t)] != null ? yoy.last[String(t)] : yoy.last[t];
+        const ths  = yoy.this[String(t)] != null ? yoy.this[String(t)] : yoy.this[t];
+        const delta = ths - last;
+        const pct = last > 0 ? (delta / last * 100) : null;
+        const cls = delta > 0 ? "pos" : (delta < 0 ? "neg" : "neutral");
+        rows += `<tr>
+          <td><b>${t}+</b> (e.g. ${sign.limit + t}+ km/h on a ${sign.limit} road)</td>
+          <td class="num">${last.toLocaleString()}</td>
+          <td class="num">${ths.toLocaleString()}</td>
+          <td class="num ${cls}">${delta >= 0 ? "+" : ""}${delta.toLocaleString()}</td>
+          <td class="num ${cls}">${pct == null ? "—" : (pct >= 0 ? "+" : "") + pct.toFixed(1) + "%"}</td>
+        </tr>`;
+      });
+      rows += `<tr style="font-size:12px;color:var(--ink-soft)"><td>Total measured volume</td><td class="num">${yoy.last_vol.toLocaleString()}</td><td class="num">${yoy.this_vol.toLocaleString()}</td><td class="num">${(yoy.this_vol - yoy.last_vol).toLocaleString()}</td><td class="num">${yoy.last_vol ? (((yoy.this_vol - yoy.last_vol) / yoy.last_vol) * 100).toFixed(1) + "%" : "—"}</td></tr>`;
+      rows += `</tbody></table>`;
+      tableEl.innerHTML = rows;
+      tableEl.style.display = "";
+      winEl.style.display = "";
+    } else {
+      tableEl.style.display = "none";
+      winEl.style.display = "none";
+    }
+
+    // hour-of-day + day-of-week (2023 baseline)
+    const hourly = data.hourly && data.hourly.signs && data.hourly.signs[sid];
+    const cityHourly = data.hourly && data.hourly.city;
+    if (hourly && cityHourly) {
+      if (!signHourChart) signHourChart = echarts.init(document.getElementById("signHourChart"), null, { renderer: "canvas" });
+      const hours = Array.from({length: 24}, (_, i) => String(i).padStart(2, "0") + ":00");
+      signHourChart.setOption({
+        grid: { left: 60, right: 24, top: 32, bottom: 36 },
+        legend: { top: 0, textStyle: { fontSize: 12 } },
+        tooltip: { trigger: "axis", valueFormatter: v => v == null ? "—" : Math.round(v).toLocaleString() + " veh" },
+        xAxis: { type: "category", data: hours, axisLabel: { fontSize: 10, interval: 1 } },
+        yAxis: { type: "value", axisLabel: { formatter: v => v >= 1000 ? (v/1000).toFixed(0) + "k" : v } },
+        series: [
+          { name: "Weekday",  type: "bar", data: hourly.wk_per_hour, itemStyle: { color: "#c0392b", borderRadius: [2,2,0,0] }, barGap: "10%" },
+          { name: "Weekend",  type: "bar", data: hourly.we_per_hour, itemStyle: { color: "#f0a000", borderRadius: [2,2,0,0] } },
+          { name: "City avg (weekday)", type: "line", smooth: true, symbol: "none", data: cityHourly.wk_per_hour_avg, lineStyle: { color: "#0f172a", width: 1.5, type: "dashed" } },
+        ],
+      });
+
+      if (!signDowChart) signDowChart = echarts.init(document.getElementById("signDowChart"), null, { renderer: "canvas" });
+      const dowLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+      signDowChart.setOption({
+        grid: { left: 60, right: 24, top: 16, bottom: 30 },
+        tooltip: { trigger: "axis", valueFormatter: v => v == null ? "—" : Math.round(v).toLocaleString() + " veh" },
+        xAxis: { type: "category", data: dowLabels },
+        yAxis: { type: "value", axisLabel: { formatter: v => v >= 1000 ? (v/1000).toFixed(0) + "k" : v } },
+        series: [{
+          type: "bar", data: hourly.dow_per_day.map((v, i) => ({
+            value: v,
+            itemStyle: { color: i >= 5 ? "#f0a000" : "#1a56db", borderRadius: [2,2,0,0] }
+          })),
+          barCategoryGap: "20%",
+        }],
+      });
+      document.getElementById("signHourChart").style.display = "";
+      document.getElementById("signDowChart").style.display = "";
+    } else {
+      document.getElementById("signHourChart").style.display = "none";
+      document.getElementById("signDowChart").style.display = "none";
+    }
+
+    // bins for latest month
+    const bins = data.signs_bins[sid];
+    if (!signBinsChart) signBinsChart = echarts.init(document.getElementById("signBins"), null, { renderer: "canvas" });
+    if (bins) {
+      const cutoff = sign.limit;
+      signBinsChart.setOption({
+        grid: { left: 40, right: 16, top: 16, bottom: 40 },
+        tooltip: { trigger: "axis", valueFormatter: v => v == null ? "—" : Number(v).toLocaleString() + " vehicles" },
+        xAxis: { type: "category", data: bins.labels, axisLabel: { rotate: 0, interval: 1, fontSize: 10 } },
+        yAxis: { type: "value", axisLabel: { formatter: v => v >= 1000 ? (v/1000).toFixed(0) + "k" : v } },
+        series: [{
+          type: "bar", data: bins.values.map((v, i) => ({
+            value: v,
+            itemStyle: { color: bins.lowers[i] >= cutoff + 10 ? "#c0392b" : (bins.lowers[i] > cutoff ? "#f0a000" : "#2e7d4f") }
+          })),
+          markLine: {
+            symbol: "none", silent: true, data: [{ xAxis: bins.labels.findIndex(l => Number(bins.lowers[bins.labels.indexOf(l)]) === cutoff) }],
+            lineStyle: { color: "#0f172a", type: "dashed" },
+            label: { formatter: `Posted ${cutoff} km/h`, color: "#0f172a" },
+          },
+        }],
+      });
+    }
+  }
+
+  // ---------- unusual patterns leaderboard ----------
+  function renderUnusual() {
+    if (!S.unusual_patterns || !S.unusual_patterns.length) return;
+    document.getElementById("unusualSection").style.display = "";
+    const data = S.unusual_patterns.slice().reverse();
+    const chart = echarts.init(document.getElementById("unusualChart"), null, { renderer: "canvas" });
+    chart.setOption({
+      grid: { left: 280, right: 80, top: 16, bottom: 30 },
+      tooltip: {
+        trigger: "axis", axisPointer: { type: "shadow" },
+        formatter: p => {
+          const it = data[p[0].dataIndex];
+          return `<b>${it.name}</b><br>Ward ${it.ward} · limit ${it.limit} km/h<br>Pattern distance: ${it.pattern_distance.toFixed(3)}<br>2023 total: ${it.total_volume.toLocaleString()} vehicles<br><i>Click to inspect</i>`;
+        },
+      },
+      xAxis: { type: "value", name: "Distance from city avg shape", nameLocation: "middle", nameGap: 22, axisLabel: { formatter: v => v.toFixed(2) } },
+      yAxis: { type: "category", data: data.map(x => x.name.length > 38 ? x.name.slice(0, 36) + "…" : x.name), axisLabel: { fontSize: 12 } },
+      series: [{
+        type: "bar",
+        data: data.map(x => ({ value: x.pattern_distance, itemStyle: { color: "#7c3aed", borderRadius: [0,2,2,0] } })),
+        label: { show: true, position: "right", formatter: p => p.value.toFixed(2), fontSize: 11 },
+      }],
+    });
+    chart.on("click", p => {
+      const it = data[p.dataIndex];
+      if (it) openSign(it.sign_id);
+    });
+    window.addEventListener("resize", () => chart.resize());
+  }
+
+  // ---------- init ----------
+  renderKPIs();
+  renderYoY();
+  renderYoYTop(20);
+  renderCityChart();
+  renderDistribution();
+  renderMap();
+  renderMovers();
+  renderWardGrid();
+  renderUnusual();
+
+  // Auto-open Mimico-area ward (Etobicoke-Lakeshore, Ward 3) if present
+  const mimico = S.ward_summary.find(w => w.ward === 3);
+  if (mimico) setTimeout(() => openWard(3), 250);
+})();
+</script>
+
+</body>
+</html>

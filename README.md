@@ -37,11 +37,24 @@ Contains information licensed under the [Open Government Licence – Toronto](ht
 
 ## How to verify any specific claim
 
-Open the source CSV linked above, filter to the sign and months of interest, and sum the speed-bin columns whose lower boundary meets your threshold. The dashboard performs no aggregation that is not described in its methodology footer.
+Two paths:
+
+1. **By hand.** Open the source CSV linked above, filter to the sign and months of interest, and sum the speed-bin columns whose lower boundary meets your threshold. The dashboard performs no aggregation that is not described in its methodology footer.
+
+2. **By re-running the whole pipeline.** The complete source code is in [`src/`](./src/). Three commands and you have your own copy of `index.html` and `data.json`, built from the same CKAN datasets, on your machine:
+
+   ```bash
+   git clone https://github.com/mschwanzer/toronto-speeding-tracker
+   cd toronto-speeding-tracker
+   pip install requests
+   python3 src/build_dashboard.py
+   ```
+
+   See [`src/README.md`](./src/README.md) for full details, including how to regenerate the optional hourly time-of-day baseline.
 
 ## Hosting
 
-This is a static page (`index.html` + `data.json`). GitHub Pages serves it directly from the `main` branch root.
+This is a static page (`index.html` + `data.json`). GitHub Pages serves it directly from the `main` branch root. The `src/` directory is the analysis pipeline; it's not served, just published for inspection and reproduction.
 
 ## Licence
 
