@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>What's happening on Mimico Ave and Stanley Ave</title>
+<meta property="og:title" content="What's happening on Mimico Ave and Stanley Ave">
+<meta property="og:description" content="Toronto's Watch Your Speed radar signs log every passing vehicle. Here is what the city's own data shows for two streets in Mimico — Mimico Avenue and Stanley Avenue — comparing the first four months of 2026 against the same window in 2025.">
+<meta name="description" content="A local view of Toronto's Watch Your Speed open data, for two streets in Mimico.">
+<style>
+  :root {
+    --bg: #ffffff;
+    --ink: #11151c;
+    --ink-soft: #4a5263;
+    --line: #e3e6ec;
+    --accent: #c0392b;
+    --good: #16a34a;
+    --neutral: #6b7280;
+    --serif: ui-serif, Georgia, "Times New Roman", serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 17px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  a { color: #1a56db; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 0 24px; }
+
+  .disclaimer-bar { background: #fef7e6; color: #6b4f00; border-bottom: 1px solid #f1d977; padding: 8px 24px; font-size: 12.5px; line-height: 1.5; text-align: center; }
+  .disclaimer-bar a { color: #6b4f00; text-decoration: underline; }
+
+  header.hero { padding: 64px 0 48px; border-bottom: 1px solid var(--line); }
+  header.hero .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); margin-bottom: 12px; }
+  header.hero h1 { font-family: var(--serif); font-weight: 700; font-size: 42px; line-height: 1.15; letter-spacing: -0.02em; margin: 0 0 16px; }
+  header.hero .standfirst { font-size: 18px; color: var(--ink-soft); margin: 0; max-width: 60ch; }
+  @media (max-width: 700px) { header.hero h1 { font-size: 30px; } header.hero { padding-top: 40px; } }
+
+  section.chapter { padding: 48px 0; border-bottom: 1px solid var(--line); }
+  section.chapter h2 { font-family: var(--serif); font-weight: 700; font-size: 26px; line-height: 1.25; margin: 0 0 8px; }
+  section.chapter .subhead { color: var(--ink-soft); font-size: 14.5px; margin: 0 0 24px; font-variant-numeric: tabular-nums; }
+  section.chapter p { margin: 0 0 16px; }
+  section.chapter p.caption { font-size: 14.5px; color: var(--ink-soft); }
+  section.chapter .pull { font-family: var(--serif); font-style: italic; font-size: 20px; line-height: 1.4; border-left: 3px solid var(--accent); padding: 4px 0 4px 18px; margin: 22px 0; }
+
+  .tier-table { width: 100%; border-collapse: collapse; font-size: 14.5px; margin: 16px 0 8px; }
+  .tier-table thead th { text-align: left; padding: 8px 6px; font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-soft); border-bottom: 1px solid var(--line); }
+  .tier-table td { padding: 10px 6px; border-bottom: 1px solid #f1f3f7; font-variant-numeric: tabular-nums; }
+  .tier-table td.num { text-align: right; }
+  .tier-table td.pct { font-weight: 600; color: var(--accent); text-align: right; }
+  .tier-table td.pct.neg { color: var(--good); }
+  .tier-table td.pct.muted { color: var(--neutral); font-weight: 500; }
+  .tier-table tr.headline td { font-weight: 600; background: #fff3f0; border-bottom-color: #f1cbc5; }
+
+  .meta-row { display: flex; flex-wrap: wrap; gap: 18px; margin: 6px 0 18px; font-size: 14px; color: var(--ink-soft); }
+  .meta-row b { color: var(--ink); font-weight: 600; }
+
+  footer.colofon { padding: 48px 0 96px; }
+  footer.colofon h3 { font-family: var(--serif); font-size: 20px; margin: 0 0 14px; }
+  footer.colofon p { color: var(--ink-soft); font-size: 14px; margin: 0 0 14px; }
+  footer.colofon .links { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0; }
+  footer.colofon .links a { display: inline-block; padding: 8px 14px; background: #f3f5f9; border-radius: 6px; text-decoration: none; color: var(--ink); font-size: 14px; font-weight: 500; }
+  footer.colofon .small { font-size: 12.5px; }
+</style>
+</head>
+<body>
+
+<div class="disclaimer-bar">
+  Independent analysis of public Toronto data · Not produced or endorsed by the City, by any government body, or by the Mimico Residents Association · Data licensed under
+  <a href="https://open.toronto.ca/open-data-license/" target="_blank" rel="noopener">OGL-Toronto</a>
+</div>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">A Mimico edition of the data</div>
+    <h1>What Toronto's open data shows is happening on Mimico Ave and Stanley Ave.</h1>
+    <p class="standfirst">The City of Toronto installs driver-feedback radar signs called "Watch Your Speed" along streets it has identified as safety zones. Every vehicle that passes is logged. Two of those signs sit on streets where many of us live — one on Mimico Avenue at #30, one on Stanley Avenue across from #148. Both are 30 km/h zones. Both have a former Automated Speed Enforcement camera within 300 m. Here is what the data shows for those two signs, comparing the first four months of 2026 against the same window in 2025.</p>
+  </div>
+</header>
+
+<section class="chapter" id="signA">
+  <div class="wrap">
+    <h2 id="aTitle">Mimico Avenue</h2>
+    <p class="subhead" id="aSub"></p>
+    <div class="meta-row" id="aMeta"></div>
+    <p id="aLead"></p>
+    <table class="tier-table" id="aTable"></table>
+    <p class="caption" id="aFootnote"></p>
+    <p class="caption">Source: City of Toronto Watch Your Speed Program — Monthly Summary. Full record for this sign: <a href="./index.html#sign=112" target="_blank" rel="noopener">interactive view ↗</a></p>
+  </div>
+</section>
+
+<section class="chapter" id="signB">
+  <div class="wrap">
+    <h2 id="bTitle">Stanley Avenue</h2>
+    <p class="subhead" id="bSub"></p>
+    <div class="meta-row" id="bMeta"></div>
+    <p id="bLead"></p>
+    <table class="tier-table" id="bTable"></table>
+    <p class="caption" id="bFootnote"></p>
+    <p class="caption">Source: City of Toronto Watch Your Speed Program — Monthly Summary. Full record for this sign: <a href="./index.html#sign=2841" target="_blank" rel="noopener">interactive view ↗</a></p>
+  </div>
+</section>
+
+<section class="chapter">
+  <div class="wrap">
+    <h2>The wider context</h2>
+    <p>The Province of Ontario banned Automated Speed Enforcement cameras across the province in November 2025. Both of the locations above sat within 300 m of a former ASE camera. Across the city, an analysis of all 1,200-plus Watch Your Speed signs shows the share of vehicles measured at 10+ km/h over the limit rose roughly 10% between the same windows — and rose more on streets that sat closest to former ASE cameras. The local pattern on Mimico Ave and Stanley Ave is consistent with that wider city pattern.</p>
+    <p>No causal claim is being made here. There are factors other than camera removal that could shift traffic on any specific street — construction, school terms, weather, neighbourhood changes. What's reported above is what the City of Toronto's own monthly counts on the two streets show: more vehicles measured well above the posted 30 km/h limit in the first four months of 2026 than in the same window the previous year, on the same two signs.</p>
+    <p class="pull" id="mainPull"></p>
+  </div>
+</section>
+
+<footer class="colofon">
+  <div class="wrap">
+    <h3>Verify it. See the rest of the city.</h3>
+    <p>Every number on this page is computed from the City's publicly-available Watch Your Speed dataset and can be checked independently. The same lookup is available for every Watch Your Speed sign in Toronto in the interactive dashboard.</p>
+    <div class="links">
+      <a href="./index.html"><b>↗</b> Full interactive dashboard</a>
+      <a href="./story.html"><b>↗</b> City-wide story</a>
+      <a href="./index.html#sign=112"><b>↗</b> Mimico Ave sign (full record)</a>
+      <a href="./index.html#sign=2841"><b>↗</b> Stanley Ave sign (full record)</a>
+      <a href="https://open.toronto.ca/dataset/safety-zone-watch-your-speed-program-monthly-summary/" target="_blank" rel="noopener"><b>↗</b> Source dataset</a>
+      <a href="https://github.com/mschwanzer/toronto-speeding-tracker" target="_blank" rel="noopener"><b>↗</b> Source code</a>
+    </div>
+    <h3 style="margin-top: 28px">About this analysis</h3>
+    <p>This page is an <b>independent analysis</b> of publicly-available Toronto Open Data. It is <b>not produced, reviewed, or endorsed</b> by the City of Toronto, the Toronto Police Service, the Province of Ontario, or by the Mimico Residents Association as an organisation. Construction of the page and its analysis code was <b>AI-assisted</b>; the data and the math are public and verifiable. Provided <b>as-is</b>, with <b>no warranty, no guarantee of accuracy or completeness, and no liability</b> for any use made of it. No commitment to respond to issues or maintain the page is offered.</p>
+    <p class="small">Page generated <span id="generatedAt"></span>. Contains information licensed under the <a href="https://open.toronto.ca/open-data-license/" target="_blank" rel="noopener">Open Government Licence – Toronto</a>; source datasets © City of Toronto. Source code: <a href="https://github.com/mschwanzer/toronto-speeding-tracker" target="_blank" rel="noopener">github.com/mschwanzer/toronto-speeding-tracker</a> · MIT licence.</p>
+  </div>
+</footer>
+
+<script>window.MIMICO = {"generated_at": "2026-05-17 00:30 UTC", "signA": {"sign_id": "112", "name": "Mimico Ave WB", "address": "30 Mimico Avenue", "ward": 3, "limit": 30, "nearest_ase_m": 282.9, "nearest_ase_loc": "Mimico Ave. West of Station Rd.", "this_vol": 462694, "last_vol": 444744, "tiers": [{"tier": 10, "last": 1552, "this": 3616, "delta": 2064, "pct": 132.98969072164948}, {"tier": 15, "last": 244, "this": 662, "delta": 418, "pct": 171.31147540983608}, {"tier": 20, "last": 62, "this": 188, "delta": 126, "pct": 203.2258064516129}, {"tier": 25, "last": 24, "this": 66, "delta": 42, "pct": 175.0}, {"tier": 30, "last": 13, "this": 26, "delta": 13, "pct": 100.0}]}, "signB": {"sign_id": "2841", "name": "STANLEY AVE EB", "address": "OPP 148 STANLEY AVE", "ward": 3, "limit": 30, "nearest_ase_m": 38.8, "nearest_ase_loc": "Stanley Ave. Near Elizabeth St.", "this_vol": 474303, "last_vol": 469742, "tiers": [{"tier": 10, "last": 4824, "this": 5108, "delta": 284, "pct": 5.887230514096186}, {"tier": 15, "last": 596, "this": 776, "delta": 180, "pct": 30.201342281879196}, {"tier": 20, "last": 65, "this": 86, "delta": 21, "pct": 32.30769230769231}, {"tier": 25, "last": 7, "this": 4, "delta": -3, "pct": -42.857142857142854}, {"tier": 30, "last": 1, "this": 0, "delta": -1, "pct": -100.0}]}};</script>
+<script>
+(function () {
+  const D = window.MIMICO;
+  document.getElementById("generatedAt").textContent = D.generated_at;
+
+  const fmt = {
+    int: v => v == null ? "—" : Math.round(v).toLocaleString(),
+    pct: v => v == null ? "—" : (v >= 0 ? "+" : "") + v.toFixed(1) + "%",
+  };
+
+  function renderSign(key, sign) {
+    if (!sign) {
+      document.getElementById(key + "Lead").textContent = "Data for this sign is not currently available in the published dataset.";
+      return;
+    }
+    const limit = sign.limit;
+    const tiers = sign.tiers; // [{tier, last, this, delta, pct}, ...]
+    const top = tiers[0]; // 10+
+
+    document.getElementById(key + "Title").textContent = sign.name + (sign.address ? "  ·  " + sign.address : "");
+    document.getElementById(key + "Sub").textContent =
+      `Posted limit: ${limit} km/h  ·  Ward ${sign.ward}` +
+      (sign.nearest_ase_m != null ? `  ·  Nearest former ASE camera: ${Math.round(sign.nearest_ase_m).toLocaleString()} m away (${sign.nearest_ase_loc || ""})` : "");
+
+    const metaEl = document.getElementById(key + "Meta");
+    metaEl.innerHTML =
+      `<span>Vehicles measured this year (Jan–Apr 2026): <b>${fmt.int(sign.this_vol)}</b></span>` +
+      `<span>Same window last year: <b>${fmt.int(sign.last_vol)}</b></span>` +
+      `<span>Volume change: <b>${fmt.pct((sign.this_vol/sign.last_vol - 1) * 100)}</b></span>`;
+
+    const leadParts = [];
+    leadParts.push(`The sign on <b>${sign.name}</b> measured <b>${fmt.int(top.this)}</b> vehicles travelling at least 10 km/h over the 30 km/h limit between January and April 2026.`);
+    leadParts.push(`The same window in 2025 saw <b>${fmt.int(top.last)}</b> — a change of <b>${top.delta >= 0 ? "+" : ""}${top.delta.toLocaleString()} vehicles, or ${fmt.pct(top.pct)}</b>.`);
+    if (sign.this_vol && sign.last_vol) {
+      const volChg = (sign.this_vol/sign.last_vol - 1) * 100;
+      if (Math.abs(volChg) < 5) {
+        leadParts.push(`Total traffic volume on the street barely shifted (${fmt.pct(volChg)}), so the change isn't simply a function of more cars on the road — the cars that <i>are</i> on the road are going faster.`);
+      }
+    }
+    document.getElementById(key + "Lead").innerHTML = leadParts.join(" ");
+
+    const table = document.getElementById(key + "Table");
+    table.innerHTML =
+      `<thead><tr>
+        <th>Drivers more than X km/h over the 30 km/h limit</th>
+        <th class="num">Jan–Apr 2025</th>
+        <th class="num">Jan–Apr 2026</th>
+        <th class="num">Change</th>
+        <th class="num">% change</th>
+      </tr></thead>
+      <tbody>${tiers.map((t, i) => {
+        const pctCls = t.pct == null ? "muted" : (t.pct < 0 ? "neg" : "");
+        const rowCls = i === 0 ? "headline" : "";
+        return `<tr class="${rowCls}">
+          <td>≥${t.tier} km/h over (i.e. ${30 + t.tier}+ km/h)</td>
+          <td class="num">${fmt.int(t.last)}</td>
+          <td class="num">${fmt.int(t.this)}</td>
+          <td class="num">${t.delta >= 0 ? "+" : ""}${t.delta.toLocaleString()}</td>
+          <td class="pct ${pctCls}">${fmt.pct(t.pct)}</td>
+        </tr>`;
+      }).join("")}</tbody>`;
+
+    const small = tiers.filter(t => Math.abs(t.last) + Math.abs(t.this) < 50);
+    if (small.length) {
+      document.getElementById(key + "Footnote").textContent =
+        `At the very highest tiers (drivers 25 or 30+ km/h above the 30 km/h limit) the absolute counts are small, so the percentage changes in those rows are noisy. The lower tiers (10+, 15+, 20+) carry the most reliable signal.`;
+    }
+  }
+
+  renderSign("a", D.signA);
+  renderSign("b", D.signB);
+
+  // Pull quote pulled from whichever sign had the larger 10+over % change
+  const a = D.signA, b = D.signB;
+  if (a && b) {
+    const a10 = a.tiers[0], b10 = b.tiers[0];
+    const winner = (a10.pct > b10.pct) ? a : b;
+    const w10 = winner.tiers[0];
+    document.getElementById("mainPull").textContent =
+      `On ${winner.name}, the number of vehicles measured more than 10 km/h over the 30 km/h limit between January and April rose from ${w10.last.toLocaleString()} to ${w10.this.toLocaleString()} year over year — a ${w10.pct.toFixed(0)}% increase, on a single Mimico school zone, in a single quarter.`;
+  }
+})();
+</script>
+
+</body>
+</html>

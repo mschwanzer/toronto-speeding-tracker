@@ -21,6 +21,10 @@ log = logging.getLogger(__name__)
 
 TEMPLATE = Path(__file__).parent / "templates" / "index.html.tmpl"
 STORY_TEMPLATE = Path(__file__).parent / "templates" / "story.html.tmpl"
+MIMICO_TEMPLATE = Path(__file__).parent / "templates" / "mimico.html.tmpl"
+
+# Signs the Mimico newsletter page focuses on. Hardcoded by sign_id.
+MIMICO_SIGNS = ["112", "2841"]
 
 
 def _series(monthly_map: dict[str, dict], months: list[str], key: str = "weighted") -> list[list]:
@@ -55,7 +59,8 @@ def _prior_year_month(month: str) -> str:
     return f"{y-1:04d}-{m:02d}"
 
 
-def latest_bins_per_sign(monthly_csv: Path, signs_meta: dict[str, dict]) -> dict[str, dict]:
+def latest_bins_per_sign(monthly_csv: Path, signs_meta: dict[str, dict],
+                          alias_map: dict[str, str] | None = None) -> dict[str, dict]:
     """Per-sign latest-month bin distribution + the prior-year same-month bins for YoY overlay.
 
     Streams the monthly CSV once, keeping a per-(sign, month) bin record only
@@ -68,6 +73,8 @@ def latest_bins_per_sign(monthly_csv: Path, signs_meta: dict[str, dict]) -> dict
 
     for row in iter_csv(monthly_csv):
         sid = (row.get("sign_id") or "").strip()
+        if alias_map:
+            sid = alias_map.get(sid, sid)
         if sid not in signs_meta:
             continue
         m = (row.get("month") or "")[:7]
@@ -80,7 +87,12 @@ def latest_bins_per_sign(monthly_csv: Path, signs_meta: dict[str, dict]) -> dict
                 values.append(int(float(v))) if v not in (None, "", "None") else values.append(0)
             except (TypeError, ValueError):
                 values.append(0)
-        bins_by_sm[(sid, m)] = values
+        existing = bins_by_sm.get((sid, m))
+        if existing is None:
+            bins_by_sm[(sid, m)] = values
+        else:
+            # Aliased sign_ids merging into the same canonical+month: sum the bins.
+            bins_by_sm[(sid, m)] = [a + b for a, b in zip(existing, values)]
         prev = latest_month.get(sid)
         if prev is None or m > prev:
             latest_month[sid] = m
@@ -113,7 +125,8 @@ def build_summary(signs: dict[str, dict], rows: list[dict], ase: list[dict],
                   nearest_ase: dict[str, dict] | None = None,
                   spatial_did: dict | None = None,
                   bin_counts: dict[str, int] | None = None,
-                  ase_camera_ranked: list | None = None) -> dict:
+                  ase_camera_ranked: list | None = None,
+                  rto: dict | None = None) -> dict:
     latest = latest_per_sign(signs_monthly, n_months=3)
 
     # ward summary (with last-24-month sparkline series)
@@ -209,6 +222,9 @@ def build_summary(signs: dict[str, dict], rows: list[dict], ase: list[dict],
     if ase_camera_ranked is not None:
         out["ase_camera_ranked"] = ase_camera_ranked
 
+    if rto is not None:
+        out["rto"] = rto
+
     if spatial_did is not None:
         # Emit bins in canonical order, including zero-sign bins as nulls.
         labels = DISTANCE_BIN_LABELS
@@ -299,10 +315,54 @@ def build_story_payload(summary: dict) -> dict:
         "wards": wards,
         "spatial": spatial,
         "distribution": summary["distribution"],
+        "rto": summary.get("rto"),
     }
 
 
-def render(summary: dict, full: dict, out_dir: Path) -> tuple[Path, Path, Path]:
+def build_mimico_payload(summary: dict, full: dict,
+                          sign_ids: list[str] = MIMICO_SIGNS) -> dict:
+    """Tight per-sign payload for the Mimico newsletter page (two specific signs)."""
+    signs_index = {str(s["sign_id"]): s for s in summary.get("signs", [])}
+    yoy = (full or {}).get("yoy_signs", {})
+
+    def make(sid: str) -> dict | None:
+        s = signs_index.get(str(sid))
+        if not s:
+            return None
+        y = yoy.get(str(sid)) or {}
+        last = y.get("last") or {}
+        this = y.get("this") or {}
+        tiers_out = []
+        for t in (10, 15, 20, 25, 30):
+            last_c = int(last.get(str(t)) or last.get(t) or 0)
+            this_c = int(this.get(str(t)) or this.get(t) or 0)
+            delta = this_c - last_c
+            pct = (delta / last_c * 100.0) if last_c else None
+            tiers_out.append({
+                "tier": t, "last": last_c, "this": this_c,
+                "delta": delta, "pct": pct,
+            })
+        return {
+            "sign_id": s["sign_id"],
+            "name": s.get("name") or s.get("address") or f"Sign {sid}",
+            "address": s.get("address") or "",
+            "ward": s.get("ward"),
+            "limit": s.get("limit"),
+            "nearest_ase_m": s.get("nearest_ase_m"),
+            "nearest_ase_loc": s.get("nearest_ase_loc"),
+            "this_vol": int(y.get("this_vol") or 0),
+            "last_vol": int(y.get("last_vol") or 0),
+            "tiers": tiers_out,
+        }
+
+    return {
+        "generated_at": summary["generated_at"],
+        "signA": make(sign_ids[0]) if len(sign_ids) > 0 else None,
+        "signB": make(sign_ids[1]) if len(sign_ids) > 1 else None,
+    }
+
+
+def render(summary: dict, full: dict, out_dir: Path) -> tuple[Path, Path, Path, Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     # Main dashboard
     tpl = TEMPLATE.read_text(encoding="utf-8")
@@ -317,4 +377,10 @@ def render(summary: dict, full: dict, out_dir: Path) -> tuple[Path, Path, Path]:
     story_html = story_tpl.replace("{{STORY_JSON}}", json.dumps(story_payload, ensure_ascii=False))
     story_path = out_dir / "story.html"
     story_path.write_text(story_html, encoding="utf-8")
-    return index_path, data_path, story_path
+    # Mimico newsletter page
+    mimico_tpl = MIMICO_TEMPLATE.read_text(encoding="utf-8")
+    mimico_payload = build_mimico_payload(summary, full)
+    mimico_html = mimico_tpl.replace("{{MIMICO_JSON}}", json.dumps(mimico_payload, ensure_ascii=False))
+    mimico_path = out_dir / "mimico.html"
+    mimico_path.write_text(mimico_html, encoding="utf-8")
+    return index_path, data_path, story_path, mimico_path

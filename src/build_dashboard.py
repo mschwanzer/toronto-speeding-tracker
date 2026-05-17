@@ -27,8 +27,9 @@ from aggregate import (                            # noqa: E402
     aggregate_distribution, aggregate_sign, aggregate_sign_volume,
     aggregate_ward, aggregate_yoy_city, all_months, assign_distance_bin,
     compute_nearest_ase, compute_prepost, compute_prepost_groups,
-    compute_yoy_segments, load_ase, load_monthly, load_signs,
-    top_ase_camera_movers, top_movers, top_yoy_increases,
+    compute_rto_analysis, compute_yoy_segments, load_ase, load_monthly,
+    load_signs, merge_signs_by_geometry, top_ase_camera_movers,
+    top_movers, top_yoy_increases,
 )
 from render import build_full, build_summary, latest_bins_per_sign, render  # noqa: E402
 import hourly as _hourly                            # noqa: E402
@@ -95,6 +96,10 @@ def main(argv: list[str] | None = None) -> int:
     if not rows:
         log.error("no monthly rows after loading — aborting")
         return 3
+
+    log.info("merging duplicate sign_ids at the same lat/lon+direction")
+    signs, rows, alias_map = merge_signs_by_geometry(signs, rows)
+
     months = all_months(rows)
     log.info("month coverage: %s .. %s (%d months)", months[0], months[-1], len(months))
 
@@ -126,6 +131,15 @@ def main(argv: list[str] | None = None) -> int:
                                               max_distance_m=500, min_signs=1, n=25)
     log.info("  %d ASE cameras with at least 1 nearby sign within 500 m", len(ase_camera_ranked))
 
+    log.info("computing back-to-office (RTO) volume DiD analysis")
+    rto = compute_rto_analysis(rows)
+    if rto.get("city"):
+        log.info("  city: RTO yr Δ=%+.2f%%  baseline Δ=%+.2f%%  DiD=%+.2f pp",
+                 rto["city"]["rto_pct"], rto["city"]["baseline_pct"], rto["city"]["did_pp"])
+    for key, area in rto.get("areas", {}).items():
+        log.info("  %-10s RTO Δ=%+.2f%%  baseline Δ=%+.2f%%  DiD=%+.2f pp",
+                 key, area["rto_pct"], area["baseline_pct"], area["did_pp"])
+
     log.info("computing pre/post difference-in-differences")
     prepost = compute_prepost(city, wards, signs_monthly, signs)
     log.info("city headline: pre=%.2f post=%.2f Δ=%s DiD=%s",
@@ -135,13 +149,13 @@ def main(argv: list[str] | None = None) -> int:
              prepost["city"]["did"])
 
     log.info("computing pre/post speed distributions")
-    distribution = aggregate_distribution(paths["monthly"], signs)
+    distribution = aggregate_distribution(paths["monthly"], signs, alias_map=alias_map)
 
     log.info("ranking top movers")
     movers = top_movers(prepost["signs"], signs, n=20)
 
     log.info("extracting latest-month bin histograms")
-    bins = latest_bins_per_sign(paths["monthly"], signs)
+    bins = latest_bins_per_sign(paths["monthly"], signs, alias_map=alias_map)
 
     log.info("loading hourly profiles (2023 baseline)")
     hourly_profiles = _hourly.load_profiles()
@@ -151,7 +165,7 @@ def main(argv: list[str] | None = None) -> int:
         log.info("  no hourly cache — run hourly.py to generate it")
 
     log.info("computing YoY tiered speeder counts (Jan-Apr 2026 vs 2025)")
-    yoy_per_sign = compute_yoy_segments(paths["monthly"], signs)
+    yoy_per_sign = compute_yoy_segments(paths["monthly"], signs, alias_map=alias_map)
     yoy_city = aggregate_yoy_city(yoy_per_sign)
     yoy_top = {t: top_yoy_increases(yoy_per_sign, signs, tier=t, n=20) for t in (10, 20, 30)}
     log.info("  city 10+over: last=%s this=%s Δ=%s (%.1f%%)",
@@ -166,15 +180,17 @@ def main(argv: list[str] | None = None) -> int:
                             yoy_city=yoy_city, yoy_top=yoy_top,
                             nearest_ase=nearest_ase, spatial_did=distance_prepost,
                             bin_counts=bin_counts,
-                            ase_camera_ranked=ase_camera_ranked)
+                            ase_camera_ranked=ase_camera_ranked,
+                            rto=rto)
     full = build_full(signs_monthly, signs_volume, wards, months, bins,
                       hourly_profiles, yoy_per_sign=yoy_per_sign)
 
     log.info("rendering HTML to %s", OUTPUT_DIR)
-    index_path, data_path, story_path = render(summary, full, OUTPUT_DIR)
+    index_path, data_path, story_path, mimico_path = render(summary, full, OUTPUT_DIR)
     log.info("wrote %s (%.1f KB)", index_path, index_path.stat().st_size / 1024)
     log.info("wrote %s (%.1f KB)", data_path, data_path.stat().st_size / 1024)
     log.info("wrote %s (%.1f KB)", story_path, story_path.stat().st_size / 1024)
+    log.info("wrote %s (%.1f KB)", mimico_path, mimico_path.stat().st_size / 1024)
     log.info("done — open %s in a browser", (PUBLISH_DIR or OUTPUT_DIR) / "index.html")
 
     # Stage the publish/ directory for GitHub Pages.
@@ -184,6 +200,7 @@ def main(argv: list[str] | None = None) -> int:
         shutil.copy2(index_path, PUBLISH_DIR / "index.html")
         shutil.copy2(data_path, PUBLISH_DIR / "data.json")
         shutil.copy2(story_path, PUBLISH_DIR / "story.html")
+        shutil.copy2(mimico_path, PUBLISH_DIR / "mimico.html")
 
         # Stage the source code as well so anyone can clone + reproduce.
         src_dir = PUBLISH_DIR / "src"

@@ -61,6 +61,15 @@
   #wardBars { height: 600px; }
   #spatialBars { height: 280px; }
   #distShift { height: 320px; }
+  .rto-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 24px 0; }
+  .rto-cell { padding: 18px 20px; border: 1px solid var(--line); border-radius: 8px; }
+  .rto-cell.downtown { border-color: #f1cbc5; background: linear-gradient(180deg, #fff, #fff3f0); }
+  .rto-cell .area { font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-soft); margin-bottom: 4px; }
+  .rto-cell .desc { font-size: 12.5px; color: var(--ink-soft); margin-bottom: 10px; }
+  .rto-cell .num { font-family: var(--serif); font-size: 36px; font-weight: 700; line-height: 1; letter-spacing: -0.02em; }
+  .rto-cell .num.pos { color: var(--accent); } .rto-cell .num.neg { color: var(--good); }
+  .rto-cell .sub { font-size: 12.5px; color: var(--ink-soft); margin-top: 8px; font-variant-numeric: tabular-nums; line-height: 1.45; }
+  @media (max-width: 700px) { .rto-row { grid-template-columns: 1fr; } }
 
   footer.colofon { padding: 60px 0 100px; }
   footer.colofon h3 { font-family: var(--serif); font-size: 20px; margin: 0 0 14px; }
@@ -177,9 +186,9 @@
 <section class="chapter">
   <div class="wrap">
     <h2>One street to test it on.</h2>
-    <p class="intro">In April 2026, the Parkside Residents' Association published an analysis of speeding on Parkside Drive, drawn from the same City dataset. Their headline: <b>vehicles travelling 60+ km/h on the 40 km/h street rose from 3,417 to 11,439 between Jan–Apr 2025 and the same window in 2026 — a 235% increase</b>. Their numbers got local media coverage.</p>
+    <p class="intro">In April 2026, <a href="https://www.facebook.com/groups/safeparkside/posts/133796102487890" target="_blank" rel="noopener"><b>Safe Parkside</b></a> — a Toronto residents' group advocating for road safety on Parkside Drive — published an analysis of speeding on the street, drawn from the same City dataset. Their headline: <b>vehicles travelling 60+ km/h on the 40 km/h street rose from 3,417 to 11,439 between Jan–Apr 2025 and the same window in 2026 — a 235% increase</b>. Their numbers got local media coverage.</p>
     <p class="pull">Run the methodology on the same sign in this dashboard, and the number reproduces exactly: 3,417 → 11,439, +234.8%.</p>
-    <p class="caption">The same lookup is available for every Watch Your Speed sign in Toronto. The dashboard linked below lets any reader, journalist, or resident type in their own street and see whether the local pattern matches the city-wide story — or doesn't.</p>
+    <p class="caption">The same lookup is available for every Watch Your Speed sign in Toronto. The dashboard linked below lets any reader, journalist, or resident type in their own street and see whether the local pattern matches the city-wide story — or doesn't. Safe Parkside's Facebook group is at <a href="https://www.facebook.com/groups/safeparkside/" target="_blank" rel="noopener">facebook.com/groups/safeparkside</a>.</p>
   </div>
 </section>
 
@@ -198,6 +207,16 @@
       </div>
     </div>
     <p class="caption">Total traffic on these signs was essentially flat across the camera-ban transition; in 2024, when speeding was naturally declining into winter, traffic was actually growing more than seven times faster than it has this year. The speeding rise is a behavioural shift, not an exposure shift.</p>
+  </div>
+</section>
+
+<section class="chapter" id="rtoSection" style="display:none">
+  <div class="wrap">
+    <h2>A second story in the same data: downtown is busier.</h2>
+    <p class="intro">Ontario's Public Service was ordered back to the office at three days a week effective April 7, 2025. Apply the same year-over-year-of-year-over-year structure to traffic <i>volume</i> rather than to speeding, and a sharp geographic signal appears: downtown wards saw a far larger volume jump in the months after the OPS mandate than the rest of the city — and far larger than the previous year's same window.</p>
+    <div class="rto-row" id="rtoRow"></div>
+    <p class="pull" id="rtoPull"></p>
+    <p class="caption">WYS signs sit in safety / school zones, not on commuter arterials, so this measures spillover onto monitored side-streets rather than the Gardiner or DVP directly. Confounders to keep in mind: the federal Treasury Board's RTO mandate (3 days, September 2024) was already in effect for the baseline year, and private-sector RTO pushes have run alongside. The downtown-vs-suburb geographic split is the cleanest piece of the signal.</p>
   </div>
 </section>
 
@@ -299,6 +318,31 @@
         label: { show: true, position: "top", fontSize: 11, color: "#c0392b", formatter: p => fmt.pp(p.value) } },
     ],
   });
+
+  // RTO section
+  if (S.rto && S.rto.areas) {
+    document.getElementById("rtoSection").style.display = "";
+    const order = ["downtown", "midtown", "outer"];
+    const psign = v => v == null ? "—" : (v >= 0 ? "+" : "") + v.toFixed(1) + " pp";
+    const csign = v => v == null ? "—" : (v >= 0 ? "+" : "") + v.toFixed(1) + "%";
+    const rowEl = document.getElementById("rtoRow");
+    rowEl.innerHTML = order.filter(k => S.rto.areas[k]).map(k => {
+      const a = S.rto.areas[k];
+      const cls = a.did_pp > 0 ? "pos" : "neg";
+      const tileCls = k === "downtown" ? "downtown" : "";
+      return `<div class="rto-cell ${tileCls}">
+        <div class="area">${a.label}</div>
+        <div class="desc">${a.wards_desc}</div>
+        <div class="num ${cls}">${psign(a.did_pp)}</div>
+        <div class="sub">RTO yr: <b>${csign(a.rto_pct)}</b><br>Prior baseline: ${csign(a.baseline_pct)}</div>
+      </div>`;
+    }).join("");
+    const dt = S.rto.areas.downtown, out_ = S.rto.areas.outer;
+    if (dt && out_) {
+      document.getElementById("rtoPull").textContent =
+        `Downtown traffic on monitored streets grew ${dt.rto_pct.toFixed(0)}% across the OPS RTO window. The same streets fell ${Math.abs(dt.baseline_pct).toFixed(0)}% the year before. Outer-416 wards moved ${out_.rto_pct.toFixed(0)}% — far below their own ${out_.baseline_pct.toFixed(0)}% baseline. The split is exactly the geographic signature of an in-office mandate.`;
+    }
+  }
 
   // Distribution shift
   const d = S.distribution;

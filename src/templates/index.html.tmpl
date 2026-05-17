@@ -70,6 +70,16 @@
   #yoyTopChart { width: 100%; height: 540px; }
   #spatialChart { width: 100%; height: 340px; }
   #cameraRankChart { width: 100%; height: 620px; }
+  .rto-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .rto-tile { padding: 16px 18px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+  .rto-tile.downtown { border-color: #f1cbc5; background: linear-gradient(180deg, #fff, #fff3f0); }
+  .rto-tile .lbl { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-soft); }
+  .rto-tile .nm { font-size: 13px; color: var(--ink-soft); margin: 2px 0 8px; }
+  .rto-tile .did { font-family: var(--serif), Georgia, serif; font-size: 32px; font-weight: 700; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .rto-tile .did.pos { color: var(--accent); }
+  .rto-tile .did.neg { color: var(--good); }
+  .rto-tile .breakdown { font-size: 13px; color: var(--ink-soft); margin-top: 8px; font-variant-numeric: tabular-nums; }
+  @media (max-width: 900px) { .rto-tiles { grid-template-columns: 1fr; } }
   .ward-card .rank { display: inline-block; font-size: 10px; font-weight: 700; color: #fff; background: var(--accent); padding: 2px 6px; border-radius: 10px; margin-right: 4px; vertical-align: middle; }
   .ward-card .rank.muted { background: #94a3b8; }
   .yoy-tile-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
@@ -208,6 +218,18 @@
     </div>
     <p class="small" style="margin-top:0">Each curve is the city-wide distribution of measured speeds during a 4-month window. A rightward shift means more drivers ended up in higher speed bins. The 2024 windows are included as a seasonal control: if the 2025 post-ban curve sits further right than the same-season 2024 curve, that's the camera-ban signature.</p>
     <div id="distChart"></div>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="card" id="rtoCard" style="display:none">
+    <div class="head">
+      <h2 style="margin:0">A second question: did back-to-office mandates push downtown traffic up?</h2>
+      <span class="small">Volume DiD · Apr–Oct 2024→2025 vs same windows 2023→2024</span>
+    </div>
+    <p class="small" style="margin-top:0">Ontario's Public Service was ordered back to office at 3 days/week effective <b>April 7, 2025</b> (federal Treasury Board mandate had landed earlier, in September 2024). To test whether the mandates measurably increased traffic, we compare the change in average daily volume at WYS signs in the 7 months <i>after</i> the OPS mandate (Apr–Oct 2025 vs Apr–Oct 2024) against the same year-over-year change in the prior year (Apr–Oct 2024 vs 2023) — a volume DiD.</p>
+    <div class="rto-tiles" id="rtoTiles"></div>
+    <p class="small" style="margin-top:14px">WYS signs sit in safety / school zones, not on commuter arterials, so this measures spillover onto monitored side-streets in each area — not the Gardiner or DVP directly. Confounders include the federal RTO already in effect for the baseline year, private-sector mandates, and changes in WYS sign coverage year-over-year (which is why we aggregate at the area level, not per ward).</p>
   </div>
 </section>
 
@@ -417,6 +439,29 @@
       ],
     });
     window.addEventListener("resize", () => chart.resize());
+  }
+
+  // ---------- back-to-office (RTO) volume DiD ----------
+  function renderRTO() {
+    if (!S.rto || !S.rto.areas) return;
+    document.getElementById("rtoCard").style.display = "";
+    const order = ["downtown", "midtown", "outer"];
+    const tilesEl = document.getElementById("rtoTiles");
+    const sign = v => v == null ? "—" : (v >= 0 ? "+" : "") + v.toFixed(1) + " pp";
+    const pctSign = v => v == null ? "—" : (v >= 0 ? "+" : "") + v.toFixed(1) + "%";
+    tilesEl.innerHTML = order
+      .filter(k => S.rto.areas[k])
+      .map(k => {
+        const a = S.rto.areas[k];
+        const cls = a.did_pp > 0 ? "pos" : "neg";
+        const tileCls = k === "downtown" ? "downtown" : "";
+        return `<div class="rto-tile ${tileCls}">
+          <div class="lbl">${a.label}</div>
+          <div class="nm">${a.wards_desc} · ${a.n_wards} ward${a.n_wards>1?"s":""}</div>
+          <div class="did ${cls}">${sign(a.did_pp)}</div>
+          <div class="breakdown">RTO-yr change ${pctSign(a.rto_pct)} · prior-yr baseline ${pctSign(a.baseline_pct)}</div>
+        </div>`;
+      }).join("");
   }
 
   // ---------- per-ASE-camera ranking ----------
@@ -1028,23 +1073,28 @@
       const cutoff = sign.limit;
       const hasPrior = bins.prior_values && bins.prior_values.length === bins.values.length;
       const series = [];
-      // Prior-year bars (left of each pair, neutral gray)
+      // Prior-year bars (left of each pair, light gray — sits in the background)
       if (hasPrior) {
         series.push({
           name: `Last year (${bins.prior_month})`,
           type: "bar",
           data: bins.prior_values,
-          itemStyle: { color: "rgba(100,116,139,0.85)", borderRadius: [2, 2, 0, 0] },
+          itemStyle: { color: "rgba(148,163,184,0.45)", borderRadius: [2, 2, 0, 0] },
         });
       }
-      // This year (right of each pair), colored by speed-over-limit
+      // This year (right of each pair), colored by speed-over-limit.
+      // Three-step palette at matched saturation so the green/orange/red
+      // progression reads as a continuum, not three competing colors.
+      //   ≤ limit       → green-600 (#16a34a)
+      //   1–9 over      → orange-500 (#f97316)
+      //   10+ over      → red-600 (#dc2626)
       const limitIdx = bins.lowers.indexOf(cutoff);
       series.push({
         name: `This year (${bins.month})`,
         type: "bar",
         data: bins.values.map((v, i) => ({
           value: v,
-          itemStyle: { color: bins.lowers[i] >= cutoff + 10 ? "#c0392b" : (bins.lowers[i] > cutoff ? "#f0a000" : "#2e7d4f"), borderRadius: [2, 2, 0, 0] },
+          itemStyle: { color: bins.lowers[i] >= cutoff + 10 ? "#dc2626" : (bins.lowers[i] > cutoff ? "#f97316" : "#16a34a"), borderRadius: [2, 2, 0, 0] },
         })),
         markLine: {
           symbol: "none", silent: true,
@@ -1070,6 +1120,7 @@
   renderYoYTop(20);
   renderSpatial();
   renderCameraRank();
+  renderRTO();
   renderCityChart();
   renderDistribution();
   renderMap();

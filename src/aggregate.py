@@ -219,6 +219,102 @@ def _row_over_count(row: dict, limit: int) -> tuple[int, int]:
     return over, volume
 
 
+def merge_signs_by_geometry(signs: dict[str, dict],
+                              rows: list[dict]) -> tuple[dict[str, dict], list[dict], dict[str, str]]:
+    """Merge sign_ids that point to the same physical location and direction.
+
+    Toronto reassigns sign_ids at the same physical location on replacement,
+    calibration, or rename — the locations dataset retains both records. Two
+    sign_ids are treated as the same location if EITHER their rounded lat/lon
+    matches AND direction matches, OR their normalized address+direction
+    match. Union-find pools any cluster of duplicates. The canonical sign per
+    group is the variant with the most recent monthly reading.
+
+    Returns (canonical_signs, remapped_rows, alias_map). The alias_map maps
+    every original sign_id to its canonical sign_id and should be passed to
+    any function that re-reads the monthly CSV directly (latest_bins_per_sign,
+    aggregate_distribution, compute_yoy_segments).
+    """
+    last_month: dict[str, str] = {}
+    for r in rows:
+        sid = r["sign_id"]
+        m = r["month"]
+        if m > last_month.get(sid, ""):
+            last_month[sid] = m
+
+    # Union-find over sign_ids
+    parent: dict[str, str] = {sid: sid for sid in signs}
+
+    def find(x: str) -> str:
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def union(a: str, b: str) -> None:
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[ra] = rb
+
+    # Criterion 1: rounded geometry (~11m) + direction
+    by_geo: dict[tuple, list[str]] = defaultdict(list)
+    for sid, s in signs.items():
+        key = (round(s["lat"], 4), round(s["lon"], 4), (s.get("dir") or "").upper())
+        by_geo[key].append(sid)
+    for sids in by_geo.values():
+        for sid in sids[1:]:
+            union(sids[0], sid)
+
+    # Criterion 2: normalized address + direction
+    # (catches case-only or whitespace-only differences in addresses with
+    # slightly different reported GPS coordinates)
+    def _norm_addr(s: str) -> str:
+        return " ".join((s or "").upper().split())
+
+    by_addr: dict[tuple, list[str]] = defaultdict(list)
+    for sid, s in signs.items():
+        addr = _norm_addr(s.get("address"))
+        d = (s.get("dir") or "").upper()
+        if addr:
+            by_addr[(addr, d)].append(sid)
+    for sids in by_addr.values():
+        for sid in sids[1:]:
+            union(sids[0], sid)
+
+    # Collect groups, pick canonical
+    groups: dict[str, list[str]] = defaultdict(list)
+    for sid in signs:
+        groups[find(sid)].append(sid)
+
+    alias_map: dict[str, str] = {}
+    n_groups_merged = 0
+    for sids in groups.values():
+        if len(sids) == 1:
+            alias_map[sids[0]] = sids[0]
+        else:
+            canonical = max(sids, key=lambda s: last_month.get(s, ""))
+            n_groups_merged += 1
+            for sid in sids:
+                alias_map[sid] = canonical
+
+    canonical_signs = {sid: s for sid, s in signs.items() if alias_map.get(sid) == sid}
+    new_rows: list[dict] = []
+    for r in rows:
+        canonical = alias_map.get(r["sign_id"])
+        if canonical is None:
+            continue
+        if canonical != r["sign_id"]:
+            new_rows.append({**r, "sign_id": canonical})
+        else:
+            new_rows.append(r)
+
+    log.info(
+        "merged %d retired sign_ids across %d duplicated-location groups -> %d canonical locations",
+        len(signs) - len(canonical_signs), n_groups_merged, len(canonical_signs),
+    )
+    return canonical_signs, new_rows, alias_map
+
+
 def load_monthly(monthly_csv: Path, signs: dict[str, dict]) -> list[dict]:
     """Yield enriched monthly rows: {sign_id, month, ward, limit, over, volume, pct}."""
     out: list[dict] = []
@@ -368,6 +464,123 @@ def aggregate_by_ase_camera(rows: list[dict], nearest_ase: dict[str, dict],
     return dict(grouped)
 
 
+# ---------- back-to-office (RTO) volume analysis ----------
+#
+# Ontario's Public Service was ordered back to office at 3 days/week effective
+# April 7, 2025. The federal Treasury Board's mandate (Sept 2024) and many
+# private-sector RTO pushes were already in effect for the baseline window.
+# We compare the 7-month Apr-Oct windows YoY in 2024->2025 against the same
+# windows YoY in 2023->2024 as a "no Ontario RTO mandate yet" baseline.
+
+RTO_PRE = ("2024-04", "2024-05", "2024-06", "2024-07", "2024-08", "2024-09", "2024-10")
+RTO_POST = ("2025-04", "2025-05", "2025-06", "2025-07", "2025-08", "2025-09", "2025-10")
+RTO_BASELINE_PRE = ("2023-04", "2023-05", "2023-06", "2023-07", "2023-08", "2023-09", "2023-10")
+RTO_BASELINE_POST = ("2024-04", "2024-05", "2024-06", "2024-07", "2024-08", "2024-09", "2024-10")
+
+RTO_AREAS: dict[str, dict] = {
+    "downtown": {
+        "label": "Downtown core",
+        "wards": [10, 11, 13],
+        "wards_desc": "Spadina-Fort York · University-Rosedale (Queen's Park) · Toronto Centre",
+    },
+    "midtown": {
+        "label": "Midtown",
+        "wards": [12, 14],
+        "wards_desc": "Toronto-St. Paul's · Toronto-Danforth",
+    },
+    "outer": {
+        "label": "Outer 416 wards",
+        "wards": [1, 2, 3, 4, 5, 6, 7, 8, 17, 18, 19, 20, 21, 22, 23, 24, 25],
+        "wards_desc": "Etobicoke, North York, Scarborough, East York",
+    },
+}
+
+
+def _ward_monthly_volume(rows: list[dict]) -> dict[int, dict[str, int]]:
+    out: dict[int, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    for r in rows:
+        out[r["ward"]][r["month"]] += r["volume"]
+    return out
+
+
+def _adt_over_months(monthly: dict[str, int], months) -> float | None:
+    total = 0
+    days = 0
+    for m in months:
+        v = monthly.get(m, 0)
+        if v:
+            total += v
+            days += calendar.monthrange(int(m[:4]), int(m[5:7]))[1]
+    return total / days if days else None
+
+
+def compute_rto_analysis(rows: list[dict]) -> dict:
+    """Volume DiD for the April 2025 OPS RTO mandate.
+
+    Returns city totals, per-ward DiD, and three-area aggregates (Downtown /
+    Midtown / Outer). The "did_pp" field is (RTO-year %Δ) − (baseline %Δ).
+    """
+    ward_vol = _ward_monthly_volume(rows)
+
+    def did_for(monthly: dict[str, int]) -> dict | None:
+        pre = _adt_over_months(monthly, RTO_PRE)
+        post = _adt_over_months(monthly, RTO_POST)
+        bpre = _adt_over_months(monthly, RTO_BASELINE_PRE)
+        bpost = _adt_over_months(monthly, RTO_BASELINE_POST)
+        if not all([pre, post, bpre, bpost]):
+            return None
+        chg_rto = (post / pre - 1) * 100
+        chg_base = (bpost / bpre - 1) * 100
+        return {
+            "pre_adt": pre, "post_adt": post,
+            "rto_pct": chg_rto, "baseline_pct": chg_base,
+            "did_pp": chg_rto - chg_base,
+        }
+
+    # City-wide
+    city_vol: dict[str, int] = defaultdict(int)
+    for r in rows:
+        city_vol[r["month"]] += r["volume"]
+    city = did_for(city_vol) or {}
+
+    # Per-ward
+    per_ward: dict[int, dict] = {}
+    for w in sorted(ward_vol.keys()):
+        d = did_for(ward_vol[w])
+        if d is not None:
+            d["ward"] = w
+            d["ward_name"] = WARD_NAMES.get(w, f"Ward {w}")
+            per_ward[w] = d
+
+    # Area aggregates: sum monthly volumes across wards in each area first,
+    # then compute DiD on the merged series.
+    areas: dict[str, dict] = {}
+    for key, info in RTO_AREAS.items():
+        merged: dict[str, int] = defaultdict(int)
+        for w in info["wards"]:
+            for m, v in ward_vol.get(w, {}).items():
+                merged[m] += v
+        d = did_for(merged)
+        if d is not None:
+            d["label"] = info["label"]
+            d["wards"] = info["wards"]
+            d["wards_desc"] = info["wards_desc"]
+            d["n_wards"] = len(info["wards"])
+            areas[key] = d
+
+    return {
+        "city": city,
+        "areas": areas,
+        "wards": per_ward,
+        "windows": {
+            "rto_pre": list(RTO_PRE),
+            "rto_post": list(RTO_POST),
+            "baseline_pre": list(RTO_BASELINE_PRE),
+            "baseline_post": list(RTO_BASELINE_POST),
+        },
+    }
+
+
 def top_ase_camera_movers(ase_prepost: dict[str, dict], nearest_ase: dict[str, dict],
                            ase: list[dict], max_distance_m: int = 500,
                            min_signs: int = 1, n: int = 25) -> list[dict]:
@@ -453,7 +666,8 @@ WINDOWS = {
 }
 
 
-def aggregate_distribution(monthly_csv: Path, signs: dict[str, dict]) -> dict:
+def aggregate_distribution(monthly_csv: Path, signs: dict[str, dict],
+                            alias_map: dict[str, str] | None = None) -> dict:
     """Sum vehicle counts per speed bin across all signs, for each pre/post window.
 
     Returns a dict like:
@@ -471,6 +685,8 @@ def aggregate_distribution(monthly_csv: Path, signs: dict[str, dict]) -> dict:
 
     for row in iter_csv(monthly_csv):
         sid = (row.get("sign_id") or "").strip()
+        if alias_map:
+            sid = alias_map.get(sid, sid)
         if sid not in signs:
             continue
         month = _parse_month(row.get("month"))
@@ -509,7 +725,8 @@ YOY_CURRENT = ("2026-01", "2026-02", "2026-03", "2026-04")
 YOY_PRIOR = ("2025-01", "2025-02", "2025-03", "2025-04")
 
 
-def compute_yoy_segments(monthly_csv: Path, signs: dict[str, dict]) -> dict[str, dict]:
+def compute_yoy_segments(monthly_csv: Path, signs: dict[str, dict],
+                          alias_map: dict[str, str] | None = None) -> dict[str, dict]:
     """Per-sign vehicle counts in each "X+ over limit" tier, for current and prior windows."""
     from ckan import iter_csv
 
@@ -524,6 +741,8 @@ def compute_yoy_segments(monthly_csv: Path, signs: dict[str, dict]) -> dict[str,
 
     for row in iter_csv(monthly_csv):
         sid = (row.get("sign_id") or "").strip()
+        if alias_map:
+            sid = alias_map.get(sid, sid)
         rec = out.get(sid)
         if rec is None:
             continue
