@@ -116,6 +116,7 @@
   th.sorted.asc::after { content: " \25B4"; }
   tr.signrow { cursor: pointer; }
   tr.signrow:hover { background: #f3f5f9; }
+  .ase-flag { display: inline-block; font-size: 13px; line-height: 1; margin-right: 4px; vertical-align: -1px; cursor: help; filter: grayscale(0.1); }
   .num { font-variant-numeric: tabular-nums; text-align: right; }
 
   .panel { display: none; }
@@ -844,7 +845,10 @@
     panel.classList.add("open");
     const w = S.ward_summary.find(x => x.ward === ward);
     document.getElementById("wardPanelTitle").textContent = `Ward ${ward} — ${w.name}`;
-    document.getElementById("wardPanelMeta").textContent = `${w.n_signs} signs · DiD-adjusted ${fmt.pp(w.did)}`;
+    const wardSigns = S.signs.filter(s => s.ward === ward);
+    const nearAseCount = wardSigns.filter(s => s.nearest_ase_m != null && s.nearest_ase_m <= 500).length;
+    const aseSuffix = nearAseCount > 0 ? ` · 📷 ${nearAseCount} within 500 m of a former ASE camera` : "";
+    document.getElementById("wardPanelMeta").textContent = `${w.n_signs} signs · DiD-adjusted ${fmt.pp(w.did)}${aseSuffix}`;
     panel.scrollIntoView({ behavior: "smooth", block: "start" });
 
     const data = await ensureFull();
@@ -895,14 +899,20 @@
       if (typeof va === "string") return asc ? va.localeCompare(vb) : vb.localeCompare(va);
       return asc ? va - vb : vb - va;
     });
-    tbody.innerHTML = signs.map(s => `
+    tbody.innerHTML = signs.map(s => {
+      const nearAse = s.nearest_ase_m != null && s.nearest_ase_m <= 500;
+      const aseIcon = nearAse
+        ? `<span class="ase-flag" title="Within ${Math.round(s.nearest_ase_m)} m of a former ASE camera location">📷</span> `
+        : "";
+      return `
       <tr class="signrow" data-sign="${s.sign_id}">
-        <td>${s.name || s.address || ("Sign " + s.sign_id)}</td>
+        <td>${aseIcon}${s.name || s.address || ("Sign " + s.sign_id)}</td>
         <td class="num">${s.limit}</td>
         <td class="num">${fmt.pct(s.latest)}</td>
         <td class="num ${s.delta_2025 == null ? "neutral" : (s.delta_2025 > 0 ? "pos" : "neg")}">${fmt.pp(s.delta_2025)}</td>
         <td class="num ${s.did == null ? "neutral" : (s.did > 0 ? "pos" : "neg")}">${fmt.pp(s.did)}</td>
-      </tr>`).join("");
+      </tr>`;
+    }).join("");
     tbody.querySelectorAll("tr").forEach(tr => tr.addEventListener("click", () => openSign(tr.dataset.sign)));
     document.querySelectorAll("#wardTable th").forEach(th => {
       th.classList.remove("sorted", "asc");
