@@ -33,6 +33,7 @@ from aggregate import (                            # noqa: E402
 )
 from render import build_full, build_summary, latest_bins_per_sign, render  # noqa: E402
 import hourly as _hourly                            # noqa: E402
+import whenspeed as _whenspeed                      # noqa: E402
 
 # Layout-aware paths so this same file works in two places:
 #  1. The author's dev tree (./tools/watch_your_speed/) — writes generated files
@@ -164,6 +165,18 @@ def main(argv: list[str] | None = None) -> int:
     else:
         log.info("  no hourly cache — run hourly.py to generate it")
 
+    log.info("loading whenspeed (2023 hour×speed-tier baseline)")
+    whenspeed = _whenspeed.load()
+    if whenspeed:
+        c = whenspeed.get("city", {})
+        log.info("  %d signs in whenspeed cache; share-outside-school: ge10=%.1f%% ge20=%.1f%% ge30=%.1f%%",
+                 c.get("n_signs", 0),
+                 100 * c.get("share_outside_school_ge10", 0),
+                 100 * c.get("share_outside_school_ge20", 0),
+                 100 * c.get("share_outside_school_ge30", 0))
+    else:
+        log.info("  no whenspeed cache — run whenspeed.py to generate it")
+
     log.info("computing YoY tiered speeder counts (Jan-Apr 2026 vs 2025)")
     yoy_per_sign = compute_yoy_segments(paths["monthly"], signs, alias_map=alias_map)
     yoy_city = aggregate_yoy_city(yoy_per_sign)
@@ -186,11 +199,14 @@ def main(argv: list[str] | None = None) -> int:
                       hourly_profiles, yoy_per_sign=yoy_per_sign)
 
     log.info("rendering HTML to %s", OUTPUT_DIR)
-    index_path, data_path, story_path, mimico_path = render(summary, full, OUTPUT_DIR)
+    index_path, data_path, story_path, mimico_path, whenspeed_path = render(
+        summary, full, OUTPUT_DIR, whenspeed=whenspeed)
     log.info("wrote %s (%.1f KB)", index_path, index_path.stat().st_size / 1024)
     log.info("wrote %s (%.1f KB)", data_path, data_path.stat().st_size / 1024)
     log.info("wrote %s (%.1f KB)", story_path, story_path.stat().st_size / 1024)
     log.info("wrote %s (%.1f KB)", mimico_path, mimico_path.stat().st_size / 1024)
+    if whenspeed_path:
+        log.info("wrote %s (%.1f KB)", whenspeed_path, whenspeed_path.stat().st_size / 1024)
     log.info("done — open %s in a browser", (PUBLISH_DIR or OUTPUT_DIR) / "index.html")
 
     # Stage the publish/ directory for GitHub Pages.
@@ -201,12 +217,14 @@ def main(argv: list[str] | None = None) -> int:
         shutil.copy2(data_path, PUBLISH_DIR / "data.json")
         shutil.copy2(story_path, PUBLISH_DIR / "story.html")
         shutil.copy2(mimico_path, PUBLISH_DIR / "mimico.html")
+        if whenspeed_path:
+            shutil.copy2(whenspeed_path, PUBLISH_DIR / "whenspeed.html")
 
         # Stage the source code as well so anyone can clone + reproduce.
         src_dir = PUBLISH_DIR / "src"
         src_dir.mkdir(parents=True, exist_ok=True)
         for name in ("build_dashboard.py", "ckan.py", "aggregate.py",
-                     "render.py", "hourly.py"):
+                     "render.py", "hourly.py", "whenspeed.py"):
             src_path = HERE / name
             if src_path.exists():
                 shutil.copy2(src_path, src_dir / name)

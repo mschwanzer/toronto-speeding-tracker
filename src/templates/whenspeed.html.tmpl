@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>"There's no one around" — when Toronto's worst speeding actually happens</title>
+<meta property="og:title" content="When Toronto's worst speeding actually happens">
+<meta property="og:description" content="A common defence of post-camera speeding is that it doesn't matter outside school hours. The data says otherwise — Toronto's most extreme speeders cluster at night, on weekends, and far from any classroom. And after the camera ban, every hour got worse.">
+<meta name="description" content="A data-driven response to the 'no kids around' argument against speed cameras.">
+<style>
+  :root {
+    --bg: #ffffff;
+    --ink: #11151c;
+    --ink-soft: #4a5263;
+    --line: #e3e6ec;
+    --accent: #c0392b;
+    --good: #2e7d4f;
+    --neutral: #6b7280;
+    --serif: ui-serif, Georgia, "Times New Roman", serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 17px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  a { color: #1a56db; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 0 24px; }
+  .wrap-wide { max-width: 1000px; margin: 0 auto; padding: 0 24px; }
+
+  .disclaimer-bar { background: #fef7e6; color: #6b4f00; border-bottom: 1px solid #f1d977; padding: 8px 24px; font-size: 12.5px; line-height: 1.5; text-align: center; }
+  .disclaimer-bar a { color: #6b4f00; text-decoration: underline; }
+
+  header.hero { padding: 80px 0 56px; border-bottom: 1px solid var(--line); }
+  header.hero .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); margin-bottom: 14px; }
+  header.hero h1 { font-family: var(--serif); font-weight: 700; font-size: 46px; line-height: 1.12; letter-spacing: -0.02em; margin: 0 0 18px; }
+  header.hero .standfirst { font-size: 19px; color: var(--ink-soft); margin: 0 0 24px; max-width: 64ch; }
+  header.hero .byline { font-size: 13px; color: var(--ink-soft); }
+  @media (max-width: 700px) { header.hero h1 { font-size: 32px; } }
+
+  section.chapter { padding: 56px 0; border-bottom: 1px solid var(--line); }
+  section.chapter h2 { font-family: var(--serif); font-weight: 700; font-size: 30px; line-height: 1.2; letter-spacing: -0.01em; margin: 0 0 14px; }
+  section.chapter p.intro { font-size: 18px; color: var(--ink); margin: 0 0 28px; }
+  section.chapter p.caption { font-size: 15px; color: var(--ink-soft); margin: 18px 0 0; }
+  section.chapter .pull { font-family: var(--serif); font-style: italic; font-size: 22px; line-height: 1.4; color: var(--ink); border-left: 3px solid var(--accent); padding: 4px 0 4px 20px; margin: 28px 0; }
+
+  .big-number { font-family: var(--serif); font-weight: 700; font-size: 88px; line-height: 1; letter-spacing: -0.03em; color: var(--accent); margin: 0; }
+  .big-number .unit { font-size: 32px; color: var(--ink-soft); margin-left: 6px; letter-spacing: -0.01em; }
+  .big-number-label { font-size: 14px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.1em; margin: 12px 0 0; max-width: 60ch; }
+  @media (max-width: 700px) { .big-number { font-size: 60px; } }
+
+  .stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin: 24px 0; }
+  .stat { padding: 16px 18px; border: 1px solid var(--line); border-radius: 8px; }
+  .stat .val { font-family: var(--serif); font-size: 32px; font-weight: 700; color: var(--ink); margin: 0; line-height: 1.1; }
+  .stat .val.pos { color: var(--accent); }
+  .stat .val.neg { color: var(--good); }
+  .stat .lbl { font-size: 13px; color: var(--ink-soft); margin-top: 6px; }
+  @media (max-width: 700px) { .stat-row { grid-template-columns: 1fr; } }
+
+  .chart { width: 100%; }
+  #hourChart { height: 360px; }
+  #dowChart { height: 280px; }
+  .sample-grid { display: grid; grid-template-columns: 1fr; gap: 28px; margin: 24px 0 0; }
+  .sample { padding: 22px 22px 18px; border: 1px solid var(--line); border-radius: 10px; background: #fafbfc; }
+  .sample .case { font-size: 12px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--accent); font-weight: 600; margin-bottom: 8px; }
+  .sample h3 { font-family: var(--serif); font-size: 22px; font-weight: 700; margin: 0 0 4px; }
+  .sample .meta { font-size: 13px; color: var(--ink-soft); margin: 0 0 14px; }
+  .sample .nums { display: flex; flex-wrap: wrap; gap: 22px; margin: 12px 0 16px; }
+  .sample .nums div { min-width: 110px; }
+  .sample .nums .big { font-family: var(--serif); font-size: 30px; font-weight: 700; color: var(--accent); line-height: 1; }
+  .sample .nums .lbl { font-size: 11.5px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 4px; }
+  .sample .chart { height: 130px; }
+
+  .quote-box { padding: 22px 26px; background: #f8f9fb; border-left: 3px solid var(--neutral); margin: 24px 0; font-size: 16px; color: var(--ink); }
+  .quote-box .src { font-size: 13px; color: var(--ink-soft); margin-top: 8px; }
+
+  .school-vs-not { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin: 24px 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .school-vs-not > div { padding: 22px 24px; }
+  .school-vs-not .school { background: #f4f7fc; }
+  .school-vs-not .outside { background: #fff3f0; border-left: 1px solid var(--line); }
+  .school-vs-not .label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-soft); margin-bottom: 8px; }
+  .school-vs-not .pct { font-family: var(--serif); font-weight: 700; font-size: 56px; line-height: 1; letter-spacing: -0.02em; }
+  .school-vs-not .pct.s { color: var(--neutral); }
+  .school-vs-not .pct.o { color: var(--accent); }
+  .school-vs-not .note { font-size: 13px; color: var(--ink-soft); margin-top: 10px; }
+  @media (max-width: 700px) { .school-vs-not { grid-template-columns: 1fr; } .school-vs-not .outside { border-left: none; border-top: 1px solid var(--line); } }
+
+  footer.colofon { padding: 60px 0 100px; }
+  footer.colofon h3 { font-family: var(--serif); font-size: 20px; margin: 0 0 14px; }
+  footer.colofon p { color: var(--ink-soft); font-size: 14px; margin: 0 0 14px; }
+  footer.colofon .links { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0; }
+  footer.colofon .links a { display: inline-block; padding: 8px 14px; background: #f3f5f9; border-radius: 6px; text-decoration: none; color: var(--ink); font-size: 14px; font-weight: 500; }
+  footer.colofon .links a:hover { background: #e3e6ec; }
+  footer.colofon .small { font-size: 12.5px; color: var(--ink-soft); }
+</style>
+</head>
+<body>
+
+<div class="disclaimer-bar">
+  Independent analysis · Not produced or endorsed by the City of Toronto, Toronto Police Service, or any government body · Data licensed under
+  <a href="https://open.toronto.ca/open-data-license/" target="_blank" rel="noopener">OGL-Toronto</a>
+</div>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Data analysis · Toronto open data · May 2026</div>
+    <h1>The 6 a.m. peak.</h1>
+    <p class="standfirst">"It doesn't matter, no kids are around anyway" is the standard reply when people complain about speeding without enforcement. Toronto's own Watch Your Speed sign data — every vehicle, every hour, all of 2023, the most recent year the City has published in detail — says the opposite. The peak <i>per-hour</i> rate of the most extreme speeders is 6 am, the start of school commutes. Total speeding peaks at 4 pm, when schools let out. The "no one is around" defence ignores when these drivers actually drive.</p>
+    <p class="byline">Six months after Ontario's province-wide ban on automated speed enforcement, November 2025.</p>
+  </div>
+</header>
+
+<section class="chapter">
+  <div class="wrap">
+    <h2>The numbers, with the framing flipped on its head.</h2>
+    <p class="intro">Skeptics of camera enforcement often grant that speeding is high, but argue it's high "at times that don't matter" — overnight, when no one is around. The 2023 hourly data flatly contradicts that framing. The school-day window — Mon–Fri 8 am to 3 pm — is 20.8% of the week's hours. Here's how much of each speeding tier actually happened inside it:</p>
+
+    <div class="school-vs-not">
+      <div class="school">
+        <div class="label">Speeding inside school hours</div>
+        <div class="pct s" id="schoolPct">—</div>
+        <div class="note">of all 10+ km/h-over vehicles measured. The school-day window covers 20.8% of the hours of the week. If speeding were uniform, you'd expect ~21% of it here. The actual share is <b id="schoolMult">—</b> the per-hour average.</div>
+      </div>
+      <div class="outside">
+        <div class="label">Speeding outside school hours</div>
+        <div class="pct o" id="outsidePct">—</div>
+        <div class="note">of all 10+ over — large, but on a per-hour basis it's <b id="outsideMult">—</b> the per-hour rate inside the school window. Speeding doesn't avoid kid-hours: traffic volume is higher then, so absolute counts during the school day are higher per hour than at most other times.</div>
+      </div>
+    </div>
+
+    <p class="big-number" id="hl30">—<span class="unit">%</span></p>
+    <p class="big-number-label">share of all 30+ km/h-over speeding measured outside school hours — and the most extreme tier <i>peaks per-hour at 6 am</i></p>
+
+    <p class="caption">The "school hours" cut-off used here is Mon–Fri 8 am to 3 pm — wider than the actual school day, deliberately so the comparison is conservative. The headline isn't that "all speeding happens during school hours" — it's that the inverse claim ("none of it does, so it doesn't matter") doesn't survive contact with the City's own hourly counts.</p>
+  </div>
+</section>
+
+<section class="chapter">
+  <div class="wrap-wide">
+    <h2>By hour of the day, all 2023.</h2>
+    <p class="intro" style="max-width: 720px; margin-left: auto; margin-right: auto;">Each curve is the city-wide total of vehicles measured at that speed tier across roughly 650 Watch Your Speed signs, summed by hour. The shaded band is the Mon–Fri 8 am – 3 pm "school" window.</p>
+    <div id="hourChart" class="chart"></div>
+    <p class="caption" style="max-width: 720px; margin: 18px auto 0;"><b>The 10+ over curve</b> tracks traffic volume — it peaks at 16:00, exactly when schools let out and after-school activity is at its highest. <b>The 30+ over curve</b> (the most dangerous tier) has two daily peaks per hour: 6 am, when school commutes begin, and 10 pm, when evening activities end and teenagers come home. The deep-overnight hours (1–4 am) have lower total volumes but also high <i>rates</i> per car — these are the conditions where a single bad outcome is most likely to be fatal.</p>
+  </div>
+</section>
+
+<section class="chapter">
+  <div class="wrap-wide">
+    <h2>By day of the week.</h2>
+    <p class="intro" style="max-width: 720px; margin-left: auto; margin-right: auto;">Saturday isn't a "no kids" day. Sunday isn't either. Kids walk to parks. Seniors cross streets to grocery stores. The Watch Your Speed signs were watching all seven days of the week in 2023, and here is what they saw at 10+, 20+, and 30+ over:</p>
+    <div id="dowChart" class="chart"></div>
+    <p class="caption" style="max-width: 720px; margin: 18px auto 0;">The pattern is similar across the city: weekend speeding at the extreme tiers is on par with or above weekday speeding, even though the "school hours" framing implicitly treats Saturday and Sunday as somehow lower-stakes.</p>
+  </div>
+</section>
+
+<section class="chapter">
+  <div class="wrap">
+    <h2>Most "School Safety Zones" aren't school zones at all.</h2>
+    <p class="intro">The Watch Your Speed sign program is administered by the City under the "School Safety Zone" name, but in practice the program covers a much broader set of Community Safety Zones: streets near parks, transit stops, seniors' residences, hospitals, dense residential blocks. The 1,200+ signs in the program guard the streets where people of all ages cross — not just the perimeter of school buildings.</p>
+    <div class="quote-box">
+      Community Safety Zones are designated by Council on streets where there is a special public safety concern — they include but are not limited to streets adjacent to schools.
+      <div class="src">— City of Toronto / Ontario Highway Traffic Act, s. 214.1</div>
+    </div>
+    <p>That matters because the "no one is around" defence implicitly relies on the idea that every WYS sign protects a classroom. They don't. A driver doing 35 over the limit past a Sunday-afternoon park, or past a transit stop at 11 pm, or past a seniors' home in the early morning, is the speeding the data is overwhelmingly capturing.</p>
+  </div>
+</section>
+
+<section class="chapter">
+  <div class="wrap">
+    <h2>Three streets, three patterns.</h2>
+    <p class="intro">Out of the ~650 signs with hourly 2023 data, here are the ones where the temporal pattern is most lopsided. Each is a real Toronto Watch Your Speed location; each shows that the worst speeding clusters at hours and days when, on the "no kids around" framing, the speeding shouldn't matter.</p>
+    <div class="sample-grid" id="sampleGrid"></div>
+  </div>
+</section>
+
+<section class="chapter">
+  <div class="wrap">
+    <h2>And after the cameras left, every hour got worse.</h2>
+    <p class="intro">The hourly data above is 2023 — the camera era. The City has not yet published detailed hourly data for 2024, 2025, or 2026. What it has published is the monthly summary: total vehicles measured in each speed tier, every month, at each sign. Comparing the four months after the November 2025 ban with the same months a year earlier:</p>
+    <div class="stat-row">
+      <div class="stat"><p class="val pos" id="postBan10">—</p><p class="lbl">more vehicles measured 10+ km/h over the limit, Jan–Apr 2026 vs 2025</p></div>
+      <div class="stat"><p class="val pos" id="postBan30">—</p><p class="lbl">more measured 30+ km/h over the limit — the most dangerous tier</p></div>
+    </div>
+    <p>That post-ban rise is across all 24 hours of the day, because the City's monthly summary doesn't separate hours. But the deterrent removed by the ban — the threat of an automated ticket arriving in the mail — operated equally on every hour of the day. There is no plausible mechanism by which removing 24-hour enforcement would lift only the overnight hours and leave morning school-commute hours untouched. The most reasonable inference is that <b>school-hour speeding is up too</b>, by something close to the same multiple — we just don't yet have the hour-resolved data to prove it directly.</p>
+    <p class="pull">The "no kids around" defence does double work: it ignores who else uses the street, and it ignores that the cameras deterred speeding at every hour, not only the ones with children present.</p>
+  </div>
+</section>
+
+<section class="chapter">
+  <div class="wrap">
+    <h2>Method &amp; data limits.</h2>
+    <p>The hourly figures on this page come from the City's <a href="https://open.toronto.ca/dataset/school-safety-zone-watch-your-speed-program-detailed-speed-counts/" target="_blank" rel="noopener">School Safety Zone Watch Your Speed Program – Detailed Speed Counts</a> dataset, 2023 file (the most recent year available; the City has not yet published 2024, 2025, or 2026 detailed counts). Each row is one sign, one hour, one 5 km/h speed bin, and a vehicle count. Speed-over-limit tiers are computed by subtracting each sign's posted limit. "Outside school hours" is everything except Monday–Friday 08:00–14:59 local time.</p>
+    <p>The post-ban comparison on the previous chapter is from the monthly summary file — the same file that powers the rest of this site. That comparison uses the most recent published months (currently Jan–Apr 2026), against the same 2025 months, across the 700+ signs that reported in both windows. The claim that <i>school-hour</i> speeding is up post-ban is inferential, drawn from the 24/7 monthly totals; it cannot be measured directly until the City publishes 2024+ hourly data.</p>
+    <p>Construction and analysis are AI-assisted. The data and the code are public — verify any number yourself.</p>
+  </div>
+</section>
+
+<footer class="colofon">
+  <div class="wrap">
+    <h3>Look it up yourself.</h3>
+    <p>Every WYS sign in Toronto, broken out by ward, with hour-of-day and year-on-year detail where available:</p>
+    <div class="links">
+      <a href="./index.html"><b>↗</b> Full interactive dashboard</a>
+      <a href="./story.html"><b>↗</b> The city-wide story</a>
+      <a href="https://open.toronto.ca/dataset/school-safety-zone-watch-your-speed-program-detailed-speed-counts/" target="_blank" rel="noopener"><b>↗</b> Source dataset (hourly, 2018–2023)</a>
+      <a href="https://open.toronto.ca/dataset/safety-zone-watch-your-speed-program-monthly-summary/" target="_blank" rel="noopener"><b>↗</b> Monthly summary (current)</a>
+      <a href="https://github.com/mschwanzer/toronto-speeding-tracker" target="_blank" rel="noopener"><b>↗</b> Source code</a>
+    </div>
+    <p class="small">Page generated <span id="generatedAt"></span>. Contains information licensed under the <a href="https://open.toronto.ca/open-data-license/" target="_blank" rel="noopener">Open Government Licence – Toronto</a>. Independent analysis; not produced or endorsed by the City of Toronto or any government body. Provided as-is with no warranty.</p>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<script>window.WHENSPEED = {{WHENSPEED_JSON}};</script>
+<script>
+(function () {
+  const D = window.WHENSPEED;
+  document.getElementById("generatedAt").textContent = D.generated_at;
+
+  const pct = v => (v == null) ? "—" : (Math.round(v * 1000) / 10).toFixed(1) + "%";
+  const fmtN = v => (v == null) ? "—" : Number(v).toLocaleString();
+
+  // Headline shares — school vs outside (tier 10)
+  const SCHOOL_HOURS_WK = 35;  // Mon-Fri 8-3
+  const TOTAL_HOURS_WK = 168;
+  const outsideShare = D.city.share_outside_school_ge10;
+  const schoolShare = 1 - outsideShare;
+  document.getElementById("schoolPct").textContent = (schoolShare * 100).toFixed(0) + "%";
+  document.getElementById("outsidePct").textContent = (outsideShare * 100).toFixed(0) + "%";
+  // Per-hour multipliers relative to the average
+  const schoolMult = (schoolShare / (SCHOOL_HOURS_WK / TOTAL_HOURS_WK));
+  const outsideMult = (outsideShare / ((TOTAL_HOURS_WK - SCHOOL_HOURS_WK) / TOTAL_HOURS_WK));
+  const ratio = outsideMult / schoolMult;  // outside-vs-school per-hour
+  document.getElementById("schoolMult").textContent = schoolMult.toFixed(2) + "×";
+  document.getElementById("outsideMult").textContent = (ratio).toFixed(2) + "×";
+  document.getElementById("hl30").firstChild.nodeValue = (D.city.share_outside_school_ge30 * 100).toFixed(1);
+
+  // Post-ban tier totals (from the existing yoy_city, already on the dashboard)
+  const t10 = D.post_ban_tiers["10"];
+  const t30 = D.post_ban_tiers["30"];
+  const fmtDelta = (t) => {
+    if (!t || t.delta == null) return "—";
+    const pctTxt = t.pct == null ? "" : ` (${t.pct > 0 ? "+" : ""}${t.pct.toFixed(1)}%)`;
+    return `${t.delta > 0 ? "+" : ""}${Number(t.delta).toLocaleString()}${pctTxt}`;
+  };
+  document.getElementById("postBan10").textContent = fmtDelta(t10);
+  document.getElementById("postBan30").textContent = fmtDelta(t30);
+
+  // Hour-of-day chart: combine weekday + weekend per hour for the three tiers.
+  const hours = Array.from({length: 24}, (_, i) => i);
+  const combine = (wk, we) => hours.map(h => (wk[h] || 0) + (we[h] || 0));
+  const series10 = combine(D.city.wk_hour_ge10, D.city.we_hour_ge10);
+  const series20 = combine(D.city.wk_hour_ge20, D.city.we_hour_ge20);
+  const series30 = combine(D.city.wk_hour_ge30, D.city.we_hour_ge30);
+  const hourChart = echarts.init(document.getElementById("hourChart"), null, { renderer: "canvas" });
+  hourChart.setOption({
+    grid: { left: 60, right: 20, top: 36, bottom: 50 },
+    legend: { top: 0, textStyle: { fontSize: 13 } },
+    tooltip: { trigger: "axis", valueFormatter: v => v == null ? "—" : Number(v).toLocaleString() + " veh" },
+    xAxis: {
+      type: "category",
+      data: hours.map(h => (h % 6 === 0) ? (h.toString().padStart(2, "0") + ":00") : ""),
+      axisLabel: { interval: 0, fontSize: 11 },
+      name: "Hour of day (24h)", nameLocation: "middle", nameGap: 30,
+    },
+    yAxis: { type: "value", scale: false, axisLabel: { formatter: v => v >= 1e6 ? (v/1e6).toFixed(1) + "M" : v >= 1e3 ? (v/1e3).toFixed(0) + "k" : v } },
+    series: [
+      { name: "10+ over limit", type: "line", smooth: true, symbol: "none", data: series10, lineStyle: { width: 2, color: "#16a34a" }, areaStyle: { color: "rgba(22,163,74,0.10)" } },
+      { name: "20+ over limit", type: "line", smooth: true, symbol: "none", data: series20, lineStyle: { width: 2, color: "#f97316" }, areaStyle: { color: "rgba(249,115,22,0.10)" } },
+      { name: "30+ over limit", type: "line", smooth: true, symbol: "none", data: series30, lineStyle: { width: 2.5, color: "#dc2626" }, areaStyle: { color: "rgba(220,38,38,0.12)" },
+        markArea: { silent: true, itemStyle: { color: "rgba(15,23,42,0.05)" }, data: [[{ xAxis: 8 }, { xAxis: 15 }]] },
+      },
+    ],
+  });
+  window.addEventListener("resize", () => hourChart.resize());
+
+  // DOW chart: weekdays + weekend, three tiers as grouped bars.
+  const dowLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const dowChart = echarts.init(document.getElementById("dowChart"), null, { renderer: "canvas" });
+  dowChart.setOption({
+    grid: { left: 60, right: 20, top: 36, bottom: 30 },
+    legend: { top: 0, textStyle: { fontSize: 13 } },
+    tooltip: { trigger: "axis", axisPointer: { type: "shadow" }, valueFormatter: v => v == null ? "—" : Number(v).toLocaleString() + " veh" },
+    xAxis: { type: "category", data: dowLabels },
+    yAxis: { type: "value", axisLabel: { formatter: v => v >= 1e6 ? (v/1e6).toFixed(1) + "M" : v >= 1e3 ? (v/1e3).toFixed(0) + "k" : v } },
+    series: [
+      { name: "10+ over", type: "bar", data: D.city.dow_ge10, itemStyle: { color: "#16a34a", borderRadius: [2,2,0,0] } },
+      { name: "20+ over", type: "bar", data: D.city.dow_ge20, itemStyle: { color: "#f97316", borderRadius: [2,2,0,0] } },
+      { name: "30+ over", type: "bar", data: D.city.dow_ge30, itemStyle: { color: "#dc2626", borderRadius: [2,2,0,0] } },
+    ],
+  });
+  window.addEventListener("resize", () => dowChart.resize());
+
+  // Sample signs
+  const samples = D.samples || {};
+  const samplesGrid = document.getElementById("sampleGrid");
+  const caseDefs = [
+    { key: "overnight", label: "Worst pattern: overnight",
+      headline: s => `${(s.share_overnight_ge10 * 100).toFixed(0)}% of all 10+ over the limit driving here happens between 10 pm and 6 am.`,
+      meta: s => `Ward ${s.ward} · Limit ${s.limit} km/h · Worst hour: ${String(s.worst_hour).padStart(2, "0")}:00`,
+      stats: s => [
+        ["overnight 10pm–6am", (s.share_overnight_ge10 * 100).toFixed(0) + "%"],
+        ["total 10+ over (2023)", Number(s.total_ge10).toLocaleString()],
+        ["total 30+ over (2023)", Number(s.total_ge30 || 0).toLocaleString()],
+      ],
+    },
+    { key: "weekend", label: "Worst pattern: weekends",
+      headline: s => `${(s.share_weekend_ge10 * 100).toFixed(0)}% of all 10+ over the limit driving at this sign happens on a Saturday or Sunday.`,
+      meta: s => `Ward ${s.ward} · Limit ${s.limit} km/h · Worst hour: ${String(s.worst_hour).padStart(2, "0")}:00`,
+      stats: s => [
+        ["weekend share", (s.share_weekend_ge10 * 100).toFixed(0) + "%"],
+        ["total 10+ over (2023)", Number(s.total_ge10).toLocaleString()],
+        ["total 20+ over (2023)", Number(s.total_ge20 || 0).toLocaleString()],
+      ],
+    },
+    { key: "outside_school", label: "Worst pattern: outside school hours",
+      headline: s => `${(s.share_outside_school_ge10 * 100).toFixed(0)}% of all 10+ over driving at this sign happens outside Mon–Fri 8 am to 3 pm.`,
+      meta: s => `Ward ${s.ward} · Limit ${s.limit} km/h · Worst hour: ${String(s.worst_hour).padStart(2, "0")}:00`,
+      stats: s => [
+        ["outside school hours", (s.share_outside_school_ge10 * 100).toFixed(0) + "%"],
+        ["total 10+ over (2023)", Number(s.total_ge10).toLocaleString()],
+        ["worst hour", String(s.worst_hour).padStart(2, "0") + ":00"],
+      ],
+    },
+  ];
+  caseDefs.forEach(def => {
+    const s = samples[def.key];
+    if (!s) return;
+    const div = document.createElement("div");
+    div.className = "sample";
+    const statsHtml = def.stats(s).map(([lbl, val]) => `<div><div class="big">${val}</div><div class="lbl">${lbl}</div></div>`).join("");
+    div.innerHTML = `
+      <div class="case">${def.label}</div>
+      <h3>${s.name} · Sign ${s.sign_id}</h3>
+      <div class="meta">${def.meta(s)}</div>
+      <p style="margin: 0 0 8px;">${def.headline(s)}</p>
+      <div class="nums">${statsHtml}</div>
+      <div class="chart" id="sample-${def.key}"></div>
+    `;
+    samplesGrid.appendChild(div);
+    const c = echarts.init(div.querySelector(".chart"), null, { renderer: "canvas" });
+    const hourly = hours.map(h => (s.wk_hour_ge10[h] || 0) + (s.we_hour_ge10[h] || 0));
+    c.setOption({
+      grid: { left: 36, right: 8, top: 6, bottom: 22 },
+      tooltip: { trigger: "axis", valueFormatter: v => v == null ? "—" : Number(v).toLocaleString() + " veh" },
+      xAxis: { type: "category", data: hours.map(h => (h % 6 === 0) ? (h.toString().padStart(2,"0")) : ""), axisLabel: { interval: 0, fontSize: 9 } },
+      yAxis: { type: "value", axisLabel: { fontSize: 9, formatter: v => v >= 1e3 ? (v/1e3).toFixed(0) + "k" : v } },
+      series: [{ type: "bar", data: hourly, itemStyle: { color: "#dc2626", borderRadius: [1,1,0,0] }, barCategoryGap: "20%",
+        markArea: { silent: true, itemStyle: { color: "rgba(15,23,42,0.06)" }, data: [[{ xAxis: 8 }, { xAxis: 15 }]] },
+      }],
+    });
+    window.addEventListener("resize", () => c.resize());
+  });
+})();
+</script>
+</body>
+</html>

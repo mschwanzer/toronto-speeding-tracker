@@ -22,6 +22,7 @@ log = logging.getLogger(__name__)
 TEMPLATE = Path(__file__).parent / "templates" / "index.html.tmpl"
 STORY_TEMPLATE = Path(__file__).parent / "templates" / "story.html.tmpl"
 MIMICO_TEMPLATE = Path(__file__).parent / "templates" / "mimico.html.tmpl"
+WHENSPEED_TEMPLATE = Path(__file__).parent / "templates" / "whenspeed.html.tmpl"
 
 # Signs the Mimico newsletter page focuses on. Hardcoded by sign_id.
 MIMICO_SIGNS = ["112", "2841"]
@@ -362,7 +363,88 @@ def build_mimico_payload(summary: dict, full: dict,
     }
 
 
-def render(summary: dict, full: dict, out_dir: Path) -> tuple[Path, Path, Path, Path]:
+def build_whenspeed_payload(summary: dict, whenspeed: dict | None) -> dict | None:
+    """Story payload for whenspeed.html — debunks 'speeding only matters when
+    students are around' by showing the temporal pattern from the 2023 archive
+    (the most recent year for which detailed hour-of-day data is published).
+
+    Picks three sample signs: highest overnight-share, highest weekend-share,
+    highest outside-school-hours-share — all gated on a minimum 10+over count
+    so we don't pick noisy low-traffic signs.
+    """
+    if not whenspeed:
+        return None
+    city = whenspeed.get("city") or {}
+    signs_idx = {str(s["sign_id"]): s for s in summary.get("signs", [])}
+    candidates = []
+    for sid, w in (whenspeed.get("signs") or {}).items():
+        if w.get("total_ge10", 0) < 5000:
+            continue
+        s = signs_idx.get(str(sid))
+        if not s:
+            continue
+        candidates.append({
+            "sign_id": sid,
+            "name": s.get("name") or s.get("address") or f"Sign {sid}",
+            "address": s.get("address") or "",
+            "ward": s.get("ward"),
+            "limit": s.get("limit"),
+            "total_ge10": w["total_ge10"],
+            "total_ge20": w.get("total_ge20", 0),
+            "total_ge30": w.get("total_ge30", 0),
+            "share_overnight_ge10": w["share_overnight_ge10"],
+            "share_weekend_ge10": w["share_weekend_ge10"],
+            "share_outside_school_ge10": w["share_outside_school_ge10"],
+            "worst_hour": w["worst_hour"],
+            "wk_hour_ge10": w["wk_hour_ge10"],
+            "we_hour_ge10": w["we_hour_ge10"],
+            "dow_ge10": w["dow_ge10"],
+        })
+    picks = {}
+    if candidates:
+        picks["overnight"] = max(candidates, key=lambda c: c["share_overnight_ge10"])
+        picks["weekend"] = max(candidates, key=lambda c: c["share_weekend_ge10"])
+        picks["outside_school"] = max(candidates, key=lambda c: c["share_outside_school_ge10"])
+
+    # Headline post-ban shift, lifted from the city YoY tiers already in summary
+    yoy_city = summary.get("yoy_city", {}).get("tiers", {}) or {}
+    tier10 = yoy_city.get("10") or yoy_city.get(10) or {}
+    tier20 = yoy_city.get("20") or yoy_city.get(20) or {}
+    tier30 = yoy_city.get("30") or yoy_city.get(30) or {}
+
+    return {
+        "generated_at": summary["generated_at"],
+        "city": {
+            "wk_hour_ge10": city.get("wk_hour_ge10", []),
+            "wk_hour_ge20": city.get("wk_hour_ge20", []),
+            "wk_hour_ge30": city.get("wk_hour_ge30", []),
+            "we_hour_ge10": city.get("we_hour_ge10", []),
+            "we_hour_ge20": city.get("we_hour_ge20", []),
+            "we_hour_ge30": city.get("we_hour_ge30", []),
+            "dow_ge10": city.get("dow_ge10", []),
+            "dow_ge20": city.get("dow_ge20", []),
+            "dow_ge30": city.get("dow_ge30", []),
+            "school_tiers": city.get("school_tiers", {}),
+            "outside_tiers": city.get("outside_tiers", {}),
+            "share_outside_school_ge10": city.get("share_outside_school_ge10", 0),
+            "share_outside_school_ge20": city.get("share_outside_school_ge20", 0),
+            "share_outside_school_ge30": city.get("share_outside_school_ge30", 0),
+            "n_signs": city.get("n_signs", 0),
+        },
+        "post_ban_tiers": {
+            "10": {"last": tier10.get("last"), "this": tier10.get("this"),
+                    "delta": tier10.get("delta"), "pct": tier10.get("pct_change")},
+            "20": {"last": tier20.get("last"), "this": tier20.get("this"),
+                    "delta": tier20.get("delta"), "pct": tier20.get("pct_change")},
+            "30": {"last": tier30.get("last"), "this": tier30.get("this"),
+                    "delta": tier30.get("delta"), "pct": tier30.get("pct_change")},
+        },
+        "samples": picks,
+    }
+
+
+def render(summary: dict, full: dict, out_dir: Path,
+            whenspeed: dict | None = None) -> tuple[Path, Path, Path, Path, Path | None]:
     out_dir.mkdir(parents=True, exist_ok=True)
     # Main dashboard
     tpl = TEMPLATE.read_text(encoding="utf-8")
@@ -383,4 +465,13 @@ def render(summary: dict, full: dict, out_dir: Path) -> tuple[Path, Path, Path, 
     mimico_html = mimico_tpl.replace("{{MIMICO_JSON}}", json.dumps(mimico_payload, ensure_ascii=False))
     mimico_path = out_dir / "mimico.html"
     mimico_path.write_text(mimico_html, encoding="utf-8")
-    return index_path, data_path, story_path, mimico_path
+    # When-speeding-happens page
+    whenspeed_path: Path | None = None
+    if whenspeed and WHENSPEED_TEMPLATE.exists():
+        ws_payload = build_whenspeed_payload(summary, whenspeed)
+        if ws_payload:
+            ws_tpl = WHENSPEED_TEMPLATE.read_text(encoding="utf-8")
+            ws_html = ws_tpl.replace("{{WHENSPEED_JSON}}", json.dumps(ws_payload, ensure_ascii=False))
+            whenspeed_path = out_dir / "whenspeed.html"
+            whenspeed_path.write_text(ws_html, encoding="utf-8")
+    return index_path, data_path, story_path, mimico_path, whenspeed_path
